@@ -1,0 +1,497 @@
+# Jeu d'evaluation du systeme RAG sur les guides de la CNIL.
+#
+# Ecrit A PARTIR DES DOCUMENTS, avant la construction du systeme : la date du commit de
+# ce fichier precede celle du premier code de recherche ou de generation.
+#
+# Champs :
+#   id                identifiant stable (Q01, Q02...)
+#   question          formulee comme un utilisateur la poserait
+#   type              avec reponse : factuelle | tableau | reformulee | multi_documents
+#                     | couverture | premisse_fausse (la question affirme une regle que le
+#                     corpus contredit : la bonne reponse corrige la premisse)
+#                     sans reponse : absente_hors_perimetre | absente_proche
+#   reponse_attendue  reponse de reference (null si la reponse est absente du corpus)
+#   sources           ou se trouve la reponse : identifiant du document (config.CORPUS)
+#                     et pages. Les pages sont celles du FICHIER PDF (1 = premiere page du
+#                     fichier), pas les numeros imprimes en bas de page.
+#                     On etiquette par page et non par passage : les passages changent
+#                     avec la strategie de decoupage, les pages jamais.
+#   citation          extrait EXACT du texte extrait (donnees/traite) qui prouve la reponse.
+#                     Un test verifie qu'il figure mot pour mot sur l'une des pages citees.
+
+- id: Q01
+  question: "Pendant combien de temps faut-il conserver les journaux d'accès (logs) d'une application ?"
+  type: factuelle
+  reponse_attendue: >-
+    La CNIL recommande une durée comprise entre six mois et un an, jugée suffisante dans la
+    plupart des cas.
+  sources:
+    - document: journalisation
+      pages: [3]
+  citation: "La Commission recommande de conserver ces données pendant une durée comprise entre six mois et un an."
+
+- id: Q02
+  question: "Quelle longueur minimale pour un mot de passe qui mélange majuscules, minuscules, chiffres et caractères spéciaux ?"
+  type: factuelle
+  reponse_attendue: >-
+    Au minimum 12 caractères (avec des caractères spéciaux choisis dans une liste d'au moins
+    37), ce qui correspond à l'entropie de 80 bits exigée sans mesure complémentaire.
+  sources:
+    - document: mots_de_passe
+      pages: [8]
+  citation: "les mots de passe doivent être composés d'au minimum 12 caractères comprenant des majuscules, des minuscules, des chiffres et des caractères spéciaux"
+
+- id: Q03
+  question: "Combien de temps une entreprise peut-elle garder les données d'un prospect qui n'est pas client ?"
+  type: factuelle
+  reponse_attendue: >-
+    Trois ans à compter de leur collecte ou du dernier contact émanant du prospect (par
+    exemple une demande de documentation ou un clic dans un courriel).
+  sources:
+    - document: gestion_commerciale
+      pages: [11]
+  citation: "Les données à caractère personnel relatives à un prospect non client peuvent être conservées pendant un délai de trois ans à compter de leur collecte par le responsable de traitement ou du dernier contact émanant du prospect"
+
+- id: Q04
+  question: "Dans quels cas la désignation d'un délégué à la protection des données (DPO) est-elle obligatoire ?"
+  type: factuelle
+  reponse_attendue: >-
+    Dans trois cas : les autorités ou organismes publics ; les organismes dont les
+    activités de base impliquent un suivi régulier et systématique de personnes à grande
+    échelle ; les organismes dont les activités de base impliquent le traitement à grande
+    échelle de données sensibles ou relatives à des condamnations pénales et infractions.
+  sources:
+    - document: dpo
+      pages: [12]
+  citation: "les organismes dont les activités de base les amènent à réaliser un suivi régulier et systématique de personnes à grande échelle"
+
+- id: Q05
+  question: "Combien de temps un site doit-il mémoriser le choix d'un internaute sur les cookies ?"
+  type: factuelle
+  reponse_attendue: >-
+    La CNIL considère que conserver ce choix (consentement comme refus) pendant 6 mois
+    constitue une bonne pratique.
+  sources:
+    - document: cookies_recommandation
+      pages: [8]
+  citation: "conserver ces choix (tant le consentement que le refus) pendant une durée de 6 mois constitue une bonne pratique"
+
+- id: Q06
+  question: "Un sous-traitant doit-il tenir son propre registre des traitements ?"
+  type: factuelle
+  reponse_attendue: >-
+    Oui : il doit tenir un registre qui recense ses clients et décrit les traitements qu'il
+    effectue pour leur compte.
+  sources:
+    - document: sous_traitant
+      pages: [7]
+  citation: "Tenir un registre qui recense vos clients et décrit les traitements que vous effectuez pour leur compte."
+
+- id: Q07
+  question: "Combien de temps conserver les mentions du registre unique du personnel après le départ d'un salarié ?"
+  type: tableau
+  reponse_attendue: >-
+    En base active pendant toute la présence du salarié dans les effectifs, puis 5 ans à
+    compter de son départ (archivage intermédiaire, obligation de l'article R 1221-26 du
+    code du travail).
+  sources:
+    - document: durees_conservation_rh
+      pages: [4]
+  citation: "5 ans à compter du départ du salarié de l'organisme"
+
+- id: Q08
+  question: "Combien de temps l'employeur conserve-t-il les bulletins de paie ?"
+  type: tableau
+  reponse_attendue: >-
+    Mise à disposition (base active) : 1 mois à compter de la transmission au travailleur.
+    Archivage : 5 ans à compter de la transmission. Pour les actions en paiement des
+    salaires : 3 ans. Pour les bulletins électroniques, disponibilité garantie pendant
+    50 ans ou jusqu'à l'âge de la retraite augmenté de 6 ans.
+  sources:
+    - document: durees_conservation_rh
+      pages: [5]
+  citation: "5 ans pour les bulletins papier ou ceux émis sous forme électronique à compter de leur transmission au travailleur"
+
+- id: Q09
+  question: "Combien de temps garder les relevés d'heures de travail des salariés en cas de contestation ?"
+  type: tableau
+  reponse_attendue: >-
+    1 an (ou la durée de la période de référence si le temps de travail est aménagé sur plus
+    d'un an), et 3 ans pour les salariés en convention de forfait.
+  sources:
+    - document: durees_conservation_rh
+      pages: [4]
+  citation: "Pour les actions en contestation du temps de travail : Pendant 1 an"
+
+- id: Q10
+  question: "Sur quelle base légale envoyer des courriels de prospection à des personnes qui n'ont jamais acheté, et jusqu'à quand garder leurs données ?"
+  type: tableau
+  reponse_attendue: >-
+    Le consentement (article L. 34-5 du code des postes et des communications
+    électroniques). Les données sont conservées jusqu'au retrait du consentement ou 3 ans à
+    compter du dernier contact.
+  sources:
+    - document: gestion_commerciale
+      pages: [5]
+  citation: "Jusqu'au retrait du consentement ou 3 ans à compter du dernier contact des personnes avec l'organisme"
+
+# --- Lot 2 : questions reformulees (sans les mots du document), a deux documents, couvertures.
+# Pour une question a deux documents, `citation` est une liste : un extrait par document.
+
+- id: Q11
+  question: "Recevoir un code par texto pour se connecter, c'est une méthode fiable ?"
+  type: reformulee
+  reponse_attendue: >-
+    Le code à usage unique (OTP) reçu par SMS peut compter comme facteur de possession, mais
+    son niveau de confiance doit être évalué au cas par cas par le responsable de
+    traitement : le SMS est un canal difficile à considérer comme apportant une sécurité
+    satisfaisante, et il est déconseillé par les autorités compétentes.
+  sources:
+    - document: authentification_multifacteur
+      pages: [4]
+  citation: "il est déconseillé par les autorités compétentes"
+
+- id: Q12
+  question: "Puis-je savoir qui a ouvert ma newsletter sans demander l'accord des destinataires ?"
+  type: reformulee
+  reponse_attendue: >-
+    En principe non : les pixels de suivi dans les courriels sont soumis au consentement.
+    Seuls deux usages en sont exemptés : la sécurisation d'une authentification, et la
+    mesure individuelle du taux d'ouverture à des fins de délivrabilité, limitée au
+    strict nécessaire (adapter la fréquence ou arrêter les envois aux destinataires
+    inactifs).
+  sources:
+    - document: pixels_email
+      pages: [5]
+  citation: "La mesure individuelle du taux d’ouverture des courriels à des fins de délivrabilité."
+
+- id: Q13
+  question: "Au bureau, mon entreprise a-t-elle le droit de m'empêcher d'aller sur des sites de streaming ?"
+  type: reformulee
+  reponse_attendue: >-
+    Oui : un serveur mandataire web filtrant peut bloquer des catégories de sites selon les
+    besoins de sécurité et les besoins opérationnels de l'employeur (la CNIL cite l'exemple
+    des sites de vidéo à la demande). Les employés doivent être informés du dispositif.
+  sources:
+    - document: filtrage_web
+      pages: [3, 6]
+  citation: "il pourrait être décidé que l’ensemble des employés ne doit pas avoir accès aux sites de vidéos à la demande"
+
+- id: Q14
+  question: "Peut-on obliger les salariés à répondre à un questionnaire sur leurs origines pour un baromètre de la diversité ?"
+  type: reformulee
+  reponse_attendue: >-
+    Non : la participation doit être volontaire et les réponses facultatives, sans
+    contrainte, sans conséquence négative en cas de refus et sans rétribution. La CNIL
+    recommande en outre de privilégier les enquêtes anonymes.
+  sources:
+    - document: diversite_travail
+      pages: [6, 3]
+  citation: "Leur éventuel refus ne devra entraîner aucune conséquence négative à leur égard et leur participation ne devra entraîner aucune rétribution."
+
+- id: Q15
+  question: "On m'a volé mon ordinateur portable professionnel avec des fichiers clients : dois-je prévenir quelqu'un, et dans quel délai ?"
+  type: reformulee
+  reponse_attendue: >-
+    Oui : c'est une violation de données. Il faut la notifier à la CNIL dans les 72 heures
+    si elle présente un risque pour les droits et libertés des personnes, informer les
+    personnes concernées en cas de risque élevé, et l'inscrire au registre interne des
+    violations.
+  sources:
+    - document: securite
+      pages: [44]
+  citation: "dans les 72 heures (tel que prévu par le RGPD), les violations présentant un risque pour les droits et libertés des personnes"
+
+- id: Q16
+  question: "Combien de temps garder les journaux d'un proxy de filtrage web ?"
+  type: multi_documents
+  reponse_attendue: >-
+    De 6 mois à 1 an, durée préconisée par la CNIL pour les journaux (recommandation
+    journalisation). Une durée supérieure doit être justifiée et documentée.
+  sources:
+    - document: filtrage_web
+      pages: [6]
+    - document: journalisation
+      pages: [3]
+  citation:
+    - "doit être justifiée et documentée"
+    - "La Commission recommande de conserver ces données pendant une durée comprise entre six mois et un an."
+
+- id: Q17
+  question: "Refuser les cookies doit-il être aussi simple que les accepter, et concrètement, comment ?"
+  type: multi_documents
+  reponse_attendue: >-
+    Oui. Les lignes directrices exigent que le refus présente le même degré de simplicité
+    que le consentement, et qu'on puisse retirer son consentement aussi simplement qu'on
+    l'a donné. La recommandation précise la mise en œuvre : le refus doit être accessible
+    sur le même écran et avec la même facilité, par exemple des boutons « tout accepter »
+    et « tout refuser » au même niveau et au même format.
+  sources:
+    - document: cookies_lignes_directrices
+      pages: [6]
+    - document: cookies_recommandation
+      pages: [6, 7]
+  citation:
+    - "il doit être aussi simple de retirer son consentement que de le donner"
+    - "Le responsable de traitement doit offrir aux utilisateurs tant la possibilité d’accepter que de refuser les opérations de lecture et/ou d’écriture avec le même degré de simplicité."
+
+- id: Q18
+  question: "Qu'est-ce que l'archivage intermédiaire, et combien de temps le registre unique du personnel y reste-t-il ?"
+  type: multi_documents
+  reponse_attendue: >-
+    L'archivage intermédiaire concerne des données qui ne servent plus à l'objectif fixé
+    (« dossiers clos ») mais présentent encore un intérêt administratif, par exemple en cas
+    de contentieux. Le registre unique du personnel y est conservé 5 ans à compter du
+    départ du salarié.
+  sources:
+    - document: durees_conservation
+      pages: [4]
+    - document: durees_conservation_rh
+      pages: [4]
+  citation:
+    - "les données personnelles ne sont plus utilisées pour atteindre l’objectif fixé (« dossiers clos ») mais présentent encore un intérêt administratif"
+    - "5 ans à compter du départ du salarié de l'organisme"
+
+- id: Q19
+  question: "Ma PME doit-elle désigner un DPO, et peut-il être quelqu'un d'extérieur à l'entreprise ?"
+  type: multi_documents
+  reponse_attendue: >-
+    Ce n'est obligatoire que dans trois cas (organisme public, suivi régulier et
+    systématique de personnes à grande échelle, données sensibles ou pénales à grande
+    échelle) ; sinon c'est recommandé. Le délégué peut être interne, externe, ou mutualisé
+    entre plusieurs organismes.
+  sources:
+    - document: dpo
+      pages: [12]
+    - document: tpe_pme
+      pages: [28]
+  citation:
+    - "les organismes dont les activités de base les amènent à réaliser un suivi régulier et systématique de personnes à grande échelle"
+    - "Le délégué peut être désigné en interne parmi vos collaborateurs ou en externe."
+
+- id: Q20
+  question: "Quand la CNIL a-t-elle adopté sa recommandation sur l'authentification multifacteur ?"
+  type: couverture
+  reponse_attendue: "Le 20 mars 2025."
+  sources:
+    - document: authentification_multifacteur
+      pages: [1]
+  citation: "Version adoptée le 20 mars 2025"
+
+- id: Q21
+  question: "De quand date la recommandation de la CNIL sur le filtrage web des salariés ?"
+  type: couverture
+  reponse_attendue: "La version a été adoptée le 29 janvier 2026."
+  sources:
+    - document: filtrage_web
+      pages: [1]
+  citation: "Version adoptée le 29 janvier 2026"
+
+# --- Lot 3 : factuelles et tableaux complementaires, premisses fausses, questions sans reponse.
+# Questions sans reponse : absence verifiee par une recherche dans les 593 pages extraites
+# (motifs notes en commentaire). Le comportement attendu est un refus explicite.
+
+- id: Q22
+  question: "Quel est le montant maximal d'une amende administrative pour non-respect du RGPD ?"
+  type: factuelle
+  reponse_attendue: >-
+    Jusqu'à 20 millions d'euros ou, pour une entreprise, jusqu'à 4 % du chiffre d'affaires
+    annuel mondial de l'exercice précédent (le montant le plus élevé étant retenu) ; un
+    plafond de 10 millions d'euros ou 2 % s'applique à certaines catégories d'infractions.
+  sources:
+    - document: durees_conservation
+      pages: [12]
+    - document: sous_traitant
+      pages: [13]
+  citation: "jusqu’à 4% du chiffre d’affaires annuel mondial total de l’exercice précédent"
+
+- id: Q23
+  question: "Quelle condition doit remplir un hébergeur pour stocker des données de santé ?"
+  type: factuelle
+  reponse_attendue: >-
+    Il doit disposer d'une certification d'hébergeur de données de santé (HDS) ; l'Agence
+    du numérique en santé publie la liste des hébergeurs certifiés.
+  sources:
+    - document: securite
+      pages: [36]
+  citation: "un hébergeur doit disposer d’une certification d’hébergeur de données de santé (HDS)"
+
+- id: Q24
+  question: "Dans quel délai faut-il traiter la demande d'une personne qui veut exercer ses droits sur ses données ?"
+  type: factuelle
+  reponse_attendue: "Dans un délai court : 1 mois au maximum."
+  sources:
+    - document: tpe_pme
+      pages: [19]
+  citation: "dans des délais courts (1 mois au maximum)"
+
+- id: Q25
+  question: "Un employeur peut-il demander le numéro de sécurité sociale d'un candidat pendant le recrutement ?"
+  type: factuelle
+  reponse_attendue: >-
+    Non : le numéro de sécurité sociale (NIR) ne peut être demandé qu'après la validation
+    définitive de la candidature, pour les formalités déclaratives liées à l'embauche.
+  sources:
+    - document: gestion_rh
+      pages: [7]
+  citation: "elle ne saurait être demandée à un candidat avant la validation définitive de sa candidature"
+
+- id: Q26
+  question: "Combien de temps garder les CV des candidats non retenus ?"
+  type: tableau
+  reponse_attendue: >-
+    Dans un vivier de candidats (CV-thèque) : jusqu'à 2 ans à compter du dernier contact,
+    pour les candidats dont le profil intéresse l'employeur et sauf opposition de leur part
+    (ou avec leur consentement). À des fins probatoires (actions en discrimination) : 5 ans
+    à compter de la date à laquelle le poste a été pourvu.
+  sources:
+    - document: durees_conservation_rh
+      pages: [3]
+    - document: tpe_pme
+      pages: [44]
+  citation: "Jusqu’à 2 ans à compter du dernier contact avec le candidat non retenu"
+
+- id: Q27
+  question: "Combien de temps conserver les ordres de virement des salaires ?"
+  type: tableau
+  reponse_attendue: >-
+    Jusqu'à l'émission du bulletin de paie en base active, puis 10 ans à compter de la
+    clôture de l'exercice comptable (article L. 123-22 du code de commerce).
+  sources:
+    - document: gestion_rh
+      pages: [11]
+  citation: "10 ans à compter de la clôture de l'exercice comptable"
+
+- id: Q28
+  question: "Puisque la CNIL impose de changer les mots de passe tous les 90 jours, comment organiser ce renouvellement ?"
+  type: premisse_fausse
+  reponse_attendue: >-
+    La prémisse est fausse : la CNIL recommande au contraire de ne plus imposer de
+    modification périodique des mots de passe à l'ensemble des utilisateurs.
+  sources:
+    - document: mots_de_passe
+      pages: [10]
+  citation: "Les responsables de traitement ne devraient plus imposer de modification périodique des mots de passe à l'ensemble de leurs utilisateurs."
+
+- id: Q29
+  question: "Mon entreprise dépasse 50 salariés, donc elle doit désigner un DPO : quelle est la procédure ?"
+  type: premisse_fausse
+  reponse_attendue: >-
+    La prémisse est fausse : l'obligation ne dépend pas d'un seuil d'effectif mais de trois
+    cas (organisme public ; suivi régulier et systématique de personnes à grande échelle ;
+    données sensibles ou pénales à grande échelle). En dehors de ces cas, la désignation
+    est recommandée mais pas obligatoire.
+  sources:
+    - document: dpo
+      pages: [12]
+  citation: "les organismes dont les activités de base les amènent à réaliser un suivi régulier et systématique de personnes à grande échelle"
+
+- id: Q30
+  question: "Comme tout cookie de mesure d'audience exige le consentement, comment faire accepter mes statistiques de visite ?"
+  type: premisse_fausse
+  reponse_attendue: >-
+    La prémisse est fausse : les traceurs dont la finalité se limite à la mesure d'audience
+    pour le compte exclusif de l'éditeur sont exemptés de consentement, à condition
+    notamment de ne pas permettre le suivi global de la navigation sur d'autres sites ou
+    applications.
+  sources:
+    - document: cookies_lignes_directrices
+      pages: [9, 10]
+  citation: "ces traceurs doivent avoir une finalité strictement limitée à la seule mesure de l’audience sur le site ou l’application pour le compte exclusif de l’éditeur"
+
+# Absentes, hors perimetre : rien a voir avec la protection des donnees.
+
+- id: Q31
+  question: "Quelle est la durée du préavis de démission d'un salarié en CDI ?"
+  type: absente_hors_perimetre
+  reponse_attendue: null
+  # verifie : « préavis » 0 occurrence
+
+- id: Q32
+  question: "Quel taux de TVA s'applique à une formation professionnelle ?"
+  type: absente_hors_perimetre
+  reponse_attendue: null
+  # verifie : « TVA » 0 occurrence
+
+- id: Q33
+  question: "Combien de temps dure la protection d'un brevet ?"
+  type: absente_hors_perimetre
+  reponse_attendue: null
+  # verifie : « brevet » 0 occurrence
+
+- id: Q34
+  question: "Quel est le délai de paiement maximal entre deux entreprises ?"
+  type: absente_hors_perimetre
+  reponse_attendue: null
+  # verifie : « délai de paiement » 0 occurrence
+
+- id: Q35
+  question: "Quel est le montant du SMIC horaire en 2026 ?"
+  type: absente_hors_perimetre
+  reponse_attendue: null
+  # verifie : « SMIC » 0 occurrence
+
+- id: Q36
+  question: "Combien de jours de congés payés un salarié acquiert-il par mois travaillé ?"
+  type: absente_hors_perimetre
+  reponse_attendue: null
+  # verifie : « congés payés » 1 occurrence (« caisses de congés payés », destinataires des
+  # donnees RH), sans rapport avec la question
+
+# Absentes, mais proches : sujets traites par la CNIL, absents de NOS 23 documents.
+# Ce sont les plus dangereuses : des passages voisins peuvent inspirer une reponse inventee.
+
+- id: Q37
+  question: "Selon la CNIL, combien de temps peut-on conserver les images d'une caméra de vidéosurveillance sur un lieu de travail ?"
+  type: absente_proche
+  reponse_attendue: null
+  # question de depart du projet (hallucination de Mistral seul).
+  # verifie : « vidéosurveillance », « vidéoprotection » 0 occurrence ; « caméra » seulement
+  # pour l'appareil photo des smartphones (applications mobiles)
+
+- id: Q38
+  question: "Mon employeur peut-il géolocaliser en permanence ma voiture de fonction ?"
+  type: absente_proche
+  reponse_attendue: null
+  # verifie : la recommandation localisation EXCLUT explicitement les vehicules de fonction
+  # (p. 4 et 7) et renvoie au site de la CNIL. Bon comportement : dire que le corpus ne
+  # couvre pas ce cas.
+
+- id: Q39
+  question: "Une entreprise peut-elle enregistrer les appels de ses téléconseillers ?"
+  type: absente_proche
+  reponse_attendue: null
+  # verifie : « enregistrement des appels / conversations » 0 occurrence
+
+- id: Q40
+  question: "Puis-je transférer des données vers un prestataire américain en m'appuyant sur le Data Privacy Framework ?"
+  type: absente_proche
+  reponse_attendue: null
+  # verifie : « Data Privacy Framework », « États-Unis » 0 occurrence. Le guide AITD traite
+  # des transferts en general : tentation de repondre a cote.
+
+- id: Q41
+  question: "Puis-je publier la photo d'un salarié sur le site internet de l'entreprise sans son accord ?"
+  type: absente_proche
+  reponse_attendue: null
+  # verifie : « droit à l'image » 0 occurrence
+
+- id: Q42
+  question: "À partir de quel âge un mineur peut-il consentir seul au traitement de ses données par un réseau social ?"
+  type: absente_proche
+  reponse_attendue: null
+  # verifie : « 15 ans » 0 occurrence
+
+- id: Q43
+  question: "Combien de temps un médecin doit-il conserver le dossier médical d'un patient ?"
+  type: absente_proche
+  reponse_attendue: null
+  # verifie : « dossier médical / patient » 2 occurrences (DPO p. 13, durees p. 16), sans
+  # duree. Le guide des durees de conservation rend la tentation forte.
+
+- id: Q44
+  question: "Quelles entreprises la CNIL a-t-elle sanctionnées en 2025, et pour quels montants ?"
+  type: absente_proche
+  reponse_attendue: null
+  # verifie : aucune sanction nominative ; seuls les plafonds d'amende (Q22) figurent au
+  # corpus : tentation de repondre avec les 4 %.

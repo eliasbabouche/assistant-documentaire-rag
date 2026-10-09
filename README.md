@@ -163,6 +163,23 @@ titre de partie.
 
 </details>
 
+<details>
+<summary><b>Comment le jeu d'évaluation a-t-il été construit, et comment savoir qu'il ne favorise pas le système ?</b></summary>
+
+Je l'ai écrit à partir des documents, avant d'écrire la moindre ligne de recherche ou de
+génération : l'historique git le montre. Il compte 44 questions. 30 ont une réponse, chacune
+avec sa page et un extrait exact que les tests retrouvent mot pour mot dans le texte. Elles
+couvrent des cas variés : 6 réponses dans un tableau, 5 questions reformulées sans les mots
+du document, 4 qui demandent deux documents, et 3 qui affirment une règle fausse que le
+système doit corriger. 14 questions (32 %) n'ont pas de réponse dans le corpus, dont 8 sur
+des sujets que la CNIL traite ailleurs, comme la vidéosurveillance au travail : ce sont les
+plus susceptibles de provoquer une réponse inventée. J'ai vérifié chaque absence par une
+recherche dans les 593 pages, et deux de mes idées de départ avaient en fait une réponse.
+Les réponses sont étiquetées par page et non par passage, pour que le même jeu serve à
+comparer plusieurs stratégies de découpage.
+
+</details>
+
 ## Licence
 
 MIT — voir [LICENSE](LICENSE).

@@ -11,6 +11,8 @@ matplotlib>=3.7
 pymupdf4llm==1.28.2
 # Tokenizer de bge-m3 seul (leger) : compter les tokens sans charger le modele.
 tokenizers>=0.20
+# Lecture du jeu d'evaluation (evaluation/questions.yaml)
+pyyaml>=6.0
 
 # Restitution (si le projet a une interface)
 # streamlit>=1.30
