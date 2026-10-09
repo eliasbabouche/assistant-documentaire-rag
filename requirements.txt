@@ -6,6 +6,12 @@ requests>=2.31
 python-dotenv>=1.0
 matplotlib>=3.7
 
+# Extraction des PDF en Markdown (texte, titres, tableaux). Version figee : le rendu
+# des tableaux change d'une version a l'autre, et donc les passages indexes.
+pymupdf4llm==1.28.2
+# Tokenizer de bge-m3 seul (leger) : compter les tokens sans charger le modele.
+tokenizers>=0.20
+
 # Restitution (si le projet a une interface)
 # streamlit>=1.30
 # plotly>=5.18

@@ -1,6 +1,6 @@
 ﻿# assistant-documentaire-rag
 
-[![Tests](https://github.com/eliasbabouche/NOM-DU-DEPOT/actions/workflows/tests.yml/badge.svg)](https://github.com/eliasbabouche/NOM-DU-DEPOT/actions/workflows/tests.yml)
+[![Tests](https://github.com/eliasbabouche/assistant-documentaire-rag/actions/workflows/tests.yml/badge.svg)](https://github.com/eliasbabouche/assistant-documentaire-rag/actions/workflows/tests.yml)
 [![Démo](https://img.shields.io/badge/démo-en%20ligne-brightgreen)](LIEN-DE-LA-DEMO)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/eliasbabouche/NOM-DU-DEPOT/blob/main/notebooks/01_restitution.ipynb)
 
@@ -30,31 +30,32 @@
 
 | | |
 |---|---|
-| Source | <nom + lien> |
-| Millésime | <version figée, ex. 2025-12 — jamais « latest »> |
-| Volume | <nombre de lignes / poids> |
-| Période | <plage temporelle couverte> |
-| Licence | <Licence Ouverte / CC-BY / …> |
+| Source | Guides, recommandations et référentiels de la [CNIL](https://www.cnil.fr) (PDF) |
+| Périmètre | « Le RGPD au quotidien dans une entreprise » : socle de conformité, sécurité, RH, numérique et marketing, IA |
+| Millésime | liste figée le 2026-10-09, chaque fichier vérifié par son empreinte SHA-256 (`src/config.py`) |
+| Volume | 23 documents, 599 pages, 18,2 Mo |
+| Période | documents publiés entre 2017 et 2026 |
+| Licence | CC BY-ND 4.0 : citation de la source, aucune modification. Les PDF ne sont pas versionnés ; les passages sont cités mot pour mot avec leur source. |
 
-Les données brutes ne sont pas versionnées. Pour les récupérer :
+Les données brutes ne sont pas versionnées. Pour les récupérer, puis les convertir en
+Markdown page par page :
 
 ```bash
-python src/telecharger_donnees.py
+python -m src.telechargement
+python -m src.extraction
 ```
 
 ### Entonnoir du nettoyage
 
-<!--
-  Le tableau qui montre combien de lignes survivent à chaque filtre. C'est la preuve
-  visible du travail de nettoyage, et le garde-fou contre une perte massive non vue.
--->
+| Étape | Pages | Tokens (`bge-m3`) | % des tokens de départ |
+|---|---:|---:|---:|
+| Pages extraites en Markdown | 599 | 405 778 | 100 % |
+| Balisage retiré (gras, barré, sauts de ligne de cellule) | 599 | 376 243 | 92,7 % |
+| En-têtes et pieds de page retirés | 599 | 374 073 | 92,2 % |
+| **Pages vides écartées : corpus retenu** | **593** | **374 073** | **92,2 %** |
 
-| Étape | Lignes restantes | % du départ |
-|---|---:|---:|
-| Données brutes | | 100 % |
-| <filtre 1> | | |
-| <filtre 2> | | |
-| **Retenu pour l'analyse** | | |
+Le texte n'est pas réduit : seules la mise en forme et les répétitions disparaissent
+(source : `donnees/agrege/entonnoir_extraction.csv`).
 
 ## Méthode
 
@@ -81,16 +82,26 @@ python src/telecharger_donnees.py
 
 ## Limites connues
 
-- <biais des données, période non couverte, hypothèse fragile>
+- **Texte dessiné dans les images** : deux pages de la recommandation sur les applications
+  mobiles (p. 9 et 24) sont des schémas pleine page sans couche texte. Leurs définitions
+  des acteurs (éditeur, fournisseur de SDK, fournisseur d'OS) ne sont pas indexées ; les
+  récupérer demanderait de l'OCR.
+- **Volet IA mince** : la CNIL publie l'essentiel de ses recommandations sur l'IA en pages
+  web, pas en PDF. Le corpus n'en contient qu'une liste de vérification de 4 pages.
+- **Éditions anciennes** : le guide du sous-traitant date de 2017, avant l'entrée en
+  application du RGPD. Il reste le guide de référence de la CNIL, mais certains passages
+  peuvent être datés.
 
 ## Ce qui a été difficile, et ce que j'en retiens
 
-<!--
-  Section courte et honnête. Elle vaut autant que le code : elle montre qu'on a
-  rencontré le réel, pas suivi un tutoriel.
--->
-
-- <la difficulté, comment elle a été résolue, ce qu'elle a appris>
+- **Un nettoyage qui abîme le texte.** Retirer le gras collait des mots : `**5 ans**à compter`
+  devenait « 5 ansà compter », un mot qu'aucune recherche par mot-clé ne retrouve. Le gras est
+  désormais remplacé par une espace, et un test fige ce cas réel.
+- **Un filtre trop zélé.** Ma première règle contre les pieds de page (« ligne présente sur la
+  moitié des pages, chiffres ignorés ») supprimait aussi des lignes de contenu qui ne
+  diffèrent d'une page à l'autre que par un numéro. La règle tient maintenant compte de la
+  position (haut ou bas de page). Les tests ont été vérifiés par contre-épreuve : en
+  cassant volontairement la règle, ils passent au rouge.
 
 ## Exécution
 
@@ -123,20 +134,34 @@ graphiques s'affichent sur GitHub sans rien exécuter.
 
 ## Questions fréquentes
 
-<!--
-  Une entrée par choix de méthode ou difficulté réelle, ajoutée au fil des phases du projet.
-  Trois à six au total. La question est celle qu'un lecteur technique se pose vraiment ;
-  la réponse est à la première personne, avec les chiffres exacts du projet.
-  Modèle :
+<details>
+<summary><b>Pourquoi convertir les PDF en Markdown plutôt qu'en texte brut, et sans OCR ?</b></summary>
 
-  <details>
-  <summary><b>Pourquoi ne pas avoir simplement fait X ?</b></summary>
+Les 23 PDF sont nés numériques : leur texte se lit directement, sans erreur, donc l'OCR
+n'aurait rien apporté. Le vrai problème était les tableaux : le corpus en contient 152, et
+ce sont eux qui portent les réponses les plus précises (les durées de conservation, par
+exemple). En texte brut, un tableau est lu colonne par colonne : la durée « 5 ans » se
+retrouve à trente lignes de la finalité « registre unique du personnel » à laquelle elle se
+rapporte. En Markdown, chaque ligne du tableau garde ses colonnes. J'ai ensuite retiré la
+mise en forme sans valeur pour le sens (gras, sauts de ligne de cellule), ce qui réduit de
+35 % le nombre de tokens des pages de tableaux. Les images ont été écartées : sur 580, 26
+seulement occupent plus de 15 % d'une page, et leur contenu est presque toujours repris dans
+le texte, à deux pages près, documentées dans les limites.
 
-  Parce que [raison], ce qui donnait [chiffre faux] au lieu de [chiffre correct].
-  J'ai donc [décision], au prix de [limite assumée].
+</details>
 
-  </details>
--->
+<details>
+<summary><b>Pourquoi ne pas avoir écarté les pages trop courtes, comme les couvertures ?</b></summary>
+
+Je l'ai fait dans une première version, avec un seuil de 150 caractères : 29 pages
+écartées. En les relisant une par une, 3 portaient une information qui n'existe nulle part
+ailleurs, comme la date d'adoption de la recommandation sur l'authentification
+multifacteur, inscrite uniquement sur sa couverture. J'ai donc abandonné le seuil : seules
+les 6 pages vides sont écartées, et le corpus passe de 599 à 593 pages. Les pages courtes
+ne gênent pas, puisqu'au découpage elles se recollent à la page suivante et lui servent de
+titre de partie.
+
+</details>
 
 ## Licence
 

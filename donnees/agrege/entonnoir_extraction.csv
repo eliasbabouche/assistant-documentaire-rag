@@ -1,0 +1,5 @@
+﻿etape;pages;caracteres;tokens_bge_m3
+1. Pages extraites (Markdown brut);599;1644872;405778
+2. Balisage retiré (gras, barré, <br>);599;1595464;376243
+3. En-têtes et pieds de page retirés;599;1587376;374073
+4. Pages vides écartées;593;1587376;374073
