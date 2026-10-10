@@ -1,30 +1,52 @@
-﻿# assistant-documentaire-rag
+﻿# Assistant documentaire RAG sur les guides de la CNIL
 
 [![Tests](https://github.com/eliasbabouche/assistant-documentaire-rag/actions/workflows/tests.yml/badge.svg)](https://github.com/eliasbabouche/assistant-documentaire-rag/actions/workflows/tests.yml)
-[![Démo](https://img.shields.io/badge/démo-en%20ligne-brightgreen)](LIEN-DE-LA-DEMO)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/eliasbabouche/NOM-DU-DEPOT/blob/main/notebooks/01_restitution.ipynb)
+![Statut](https://img.shields.io/badge/statut-en%20cours-orange)
 
-> Assistant de questions-réponses sur les guides de la CNIL : réponses sourcées, refus quand l'information est absente, et évaluation chiffrée (Ollama vs API Claude)
+> Assistant de questions-réponses sur 23 guides de la CNIL (RGPD) : réponses sourcées, refus
+> quand l'information est absente, et évaluation chiffrée d'un modèle local (Mistral via
+> Ollama) face à l'API Claude.
 
-<!--
-  Ordre imposé : le résultat AVANT la méthode. Un lecteur donne 20 secondes à ce fichier.
-  Remplacer chaque section, puis supprimer ces commentaires.
--->
+## La question
 
-## Résultat
+Peut-on interroger 600 pages de documentation réglementaire en langage naturel, et obtenir
+des réponses **fiables, sourcées, et qui admettent « je ne sais pas »** quand l'information
+n'y est pas ? Et surtout : **comment le prouver avec des chiffres ?**
 
-<!--
-  Un résultat NUANCÉ et chiffré, pas un slogan. « 9 villes sur 10, mais résultat contrasté
-  sur les maisons, avec deux exceptions » est crédible ; « les prix explosent » ne l'est pas.
-  Les chiffres cités ici doivent être EXACTEMENT ceux du notebook et du dashboard.
--->
+C'est la question que pose un client avant de confier sa documentation interne à un
+assistant. Un modèle de langage seul y répond mal. Interrogé sans document sur la durée de
+conservation des images de vidéosurveillance au travail, Mistral 7B cite avec assurance un
+« guide pratique » de la CNIL, « page 23 », avec son adresse sur cnil.fr : l'adresse
+renvoie une erreur 404, le document n'existe pas. Le RAG (*Retrieval-Augmented
+Generation*) consiste à retrouver d'abord les passages pertinents dans les documents, puis à
+demander au modèle de répondre uniquement à partir d'eux, en les citant.
 
-![Aperçu](docs/apercu.png)
+## Avancement
 
-**Démo en ligne** : <lien Streamlit Cloud ou Hugging Face Spaces>
+| Étape | Statut | Ce qu'elle produit |
+|---|---|---|
+| 1. Corpus | ✅ | 23 PDF vérifiés par empreinte, convertis en Markdown page par page (texte, titres, tableaux) |
+| 2. Jeu d'évaluation | ✅ | 44 questions écrites **avant** le système, dont 14 sans réponse dans le corpus |
+| 3. Découpage, embeddings, index vectoriel | 🔄 en cours | passages indexés dans ChromaDB, première mesure de la recherche |
+| 4. Génération | ⬜ | réponses citées : Mistral en local, puis l'API Claude |
+| 5. Évaluation | ⬜ | exactitude, fidélité aux sources, refus correct, latence, coût par requête |
+| 6. Variantes | ⬜ | deux stratégies de découpage, recherche hybride, reclassement (*reranking*) |
+| 7. Démo | ⬜ | interface en ligne sur Hugging Face Spaces |
 
-**Notebook de restitution** : [`notebooks/01_restitution.ipynb`](notebooks/01_restitution.ipynb)
-— lisible directement sur GitHub, graphiques compris.
+## Ce qui sera mesuré
+
+La recherche et la génération sont évaluées **séparément**. Quand une réponse est fausse, il
+faut savoir si le bon passage n'a pas été retrouvé (problème de recherche) ou s'il a été mal
+exploité (problème de génération) : les deux ne se corrigent pas de la même façon.
+
+| Maillon | Métrique | Ce qu'elle dit |
+|---|---|---|
+| Recherche (*retrieval*) | *Hit rate@k*, *recall@k* | la page qui contient la réponse est-elle parmi les k passages retrouvés ? |
+| Recherche | MRR (*Mean Reciprocal Rank*) | à quel rang arrive le premier bon passage ? |
+| Génération | Exactitude (*answer correctness*) | la réponse dit-elle la même chose que la référence ? |
+| Génération | Fidélité (*faithfulness*) | chaque affirmation est-elle appuyée par les passages fournis ? |
+| Génération | Refus correct / refus à tort | dit-il « je ne sais pas » quand il le faut, et seulement dans ce cas ? |
+| Coût | Latence, coût par requête | le prix de la qualité, du modèle local à l'API |
 
 ## Données
 
@@ -59,26 +81,39 @@ Le texte n'est pas réduit : seules la mise en forme et les répétitions dispar
 
 ## Méthode
 
-1. <étape>
-2. <étape>
-3. <étape>
+1. **Corpus** : téléchargement des 23 PDF, avec vérification de l'empreinte SHA-256 de chaque
+   fichier, puis conversion en Markdown page par page (`pymupdf4llm`), qui conserve les
+   tableaux ligne par ligne ; retrait de la mise en forme et des en-têtes et pieds de page.
+2. **Jeu d'évaluation** : 44 questions rédigées à partir des documents, chacune avec ses
+   pages sources et un extrait exact vérifié par les tests (`evaluation/questions.yaml`).
+3. **Indexation** : découpage en passages d'au plus 500 tokens, embeddings multilingues
+   `BAAI/bge-m3`, index vectoriel ChromaDB en similarité cosinus.
+4. **Génération** : les passages retrouvés sont transmis au modèle avec la consigne de
+   répondre uniquement à partir d'eux, de citer document et page, et de refuser sinon.
+   Même index et mêmes questions pour Mistral (local, via Ollama) et Claude (API).
 
 ## Deux choix de méthode qui changent le résultat
 
-<!--
-  Les réponses d'entretien, écrites en AFFIRMATIONS à puces, pas en questions.
-  Prendre les deux décisions qui, si on les avait prises autrement, auraient donné
-  un résultat différent. C'est ce qu'un recruteur technique va creuser.
--->
+**Le jeu d'évaluation est écrit avant le système, et étiqueté par page.**
 
-**<Le premier choix>**
+- Écrites en observant le système, les questions auraient favorisé ce qu'il sait déjà faire,
+  et le score n'aurait plus rien mesuré. L'historique git date le jeu avant la première
+  ligne de recherche.
+- Les réponses sont repérées par page, pas par passage : les passages changent avec la
+  stratégie de découpage, les pages jamais. Le même jeu permet donc de comparer les
+  stratégies entre elles.
+- Un tiers des questions (14 sur 44) n'a pas de réponse dans le corpus, dont 8 sur des
+  sujets que la CNIL traite ailleurs : c'est là qu'un système invente le plus volontiers.
 
-- <ce qui a été décidé, et pourquoi>
-- <ce que donnerait l'autre option, chiffré si possible>
+**Les PDF sont convertis en Markdown, pas en texte brut.**
 
-**<Le second choix>**
-
-- <idem>
+- Le corpus contient 152 tableaux, qui portent les réponses les plus précises (durées de
+  conservation, bases légales). En texte brut, ils sont lus colonne par colonne et une durée
+  se retrouve séparée de la ligne à laquelle elle se rapporte.
+- En Markdown, chaque ligne du tableau garde ses colonnes. Le retrait de la mise en forme
+  inutile réduit de 35 % le nombre de tokens des pages de tableaux.
+- 6 questions du jeu d'évaluation ont leur réponse dans un tableau : l'effet de ce choix
+  sera mesuré, pas supposé.
 
 ## Limites connues
 
@@ -105,11 +140,15 @@ Le texte n'est pas réduit : seules la mise en forme et les répétitions dispar
 
 ## Exécution
 
+État actuel : constitution du corpus. L'interface de questions-réponses arrivera à
+l'étape 7.
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-streamlit run app.py
+python -m src.telechargement
+python -m src.extraction
 ```
 
 ## Tests
@@ -118,19 +157,19 @@ streamlit run app.py
 pytest
 ```
 
+Les tests tournent sans réseau. Ceux qui vérifient les citations du jeu d'évaluation
+s'exécutent après `python -m src.extraction`, et sont ignorés sinon (dans la CI notamment).
+
 ## Structure
 
 ```
-app.py        point d'entrée de l'application (à la RACINE : sinon l'import de src échoue)
-src/          code métier, une responsabilité par module
-tests/        tests unitaires
-notebooks/    restitution : importe depuis src/, ne contient pas de logique métier
-donnees/      brut/ et traite/ non versionnés ; reference/ et agrege/ versionnés (petits)
+src/config.py           chemins, paramètres, liste figée des 23 documents
+src/telechargement.py   téléchargement vérifié par empreinte SHA-256
+src/extraction.py       PDF vers Markdown page par page, entonnoir du nettoyage
+evaluation/             jeu d'évaluation (44 questions)
+tests/                  tests unitaires, sans réseau
+donnees/                brut/ et traite/ non versionnés ; agrege/ versionné (petits tableaux)
 ```
-
-Le code vit dans `src/` et reste testable ; le notebook importe depuis `src/` et raconte
-l'histoire. Ses sorties sont volontairement conservées dans le fichier pour que les
-graphiques s'affichent sur GitHub sans rien exécuter.
 
 ## Questions fréquentes
 
