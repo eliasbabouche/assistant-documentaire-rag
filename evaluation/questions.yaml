@@ -439,15 +439,27 @@
   # donnees RH), sans rapport avec la question
 
 # Absentes, mais proches : sujets traites par la CNIL, absents de NOS 23 documents.
+# (Q37 et Q39, d'abord rangees ici, ont une reponse : corrigees le 2026-10-25.)
 # Ce sont les plus dangereuses : des passages voisins peuvent inspirer une reponse inventee.
 
 - id: Q37
   question: "Selon la CNIL, combien de temps peut-on conserver les images d'une caméra de vidéosurveillance sur un lieu de travail ?"
-  type: absente_proche
-  reponse_attendue: null
+  type: tableau
+  reponse_attendue: >-
+    Un mois à compter de la captation des images (en règle générale, quelques jours
+    suffisent pour les vérifications après un incident). Si une procédure disciplinaire ou
+    pénale est engagée, les images sont extraites et conservées pour la durée de la
+    procédure.
+  sources:
+    - document: durees_conservation_rh
+      pages: [7]
+  citation: "1 moisà compter de la captation des images"
   # question de depart du projet (hallucination de Mistral seul).
-  # verifie : « vidéosurveillance », « vidéoprotection » 0 occurrence ; « caméra » seulement
-  # pour l'appareil photo des smartphones (applications mobiles)
+  # CORRIGEE le 2026-10-25 : etiquetee « absente_proche » a l'origine. La premiere version
+  # du systeme y a repondu en citant le referentiel RH p. 7, ligne « Vidéosurveillance à
+  # des fins de sécurisation des biens et des personnes ». La verification du 2026-10-09
+  # (« vidéosurveillance » : 0 occurrence) etait fausse : le mot figure dans ce tableau. Le PDF colle « moisà » (espace absente du
+  # fichier d'origine) : la citation reprend le texte tel quel.
 
 - id: Q38
   question: "Mon employeur peut-il géolocaliser en permanence ma voiture de fonction ?"
@@ -459,9 +471,21 @@
 
 - id: Q39
   question: "Une entreprise peut-elle enregistrer les appels de ses téléconseillers ?"
-  type: absente_proche
-  reponse_attendue: null
-  # verifie : « enregistrement des appels / conversations » 0 occurrence
+  type: tableau
+  reponse_attendue: >-
+    Oui, à des fins de formation, d'amélioration de la qualité de service ou d'évaluation :
+    les enregistrements sont conservés 6 mois au maximum à compter de l'enregistrement, puis
+    seuls les documents d'analyse peuvent être gardés en archivage intermédiaire, 1 an au
+    maximum.
+  sources:
+    - document: durees_conservation_rh
+      pages: [10]
+  citation: "6 mois maximum à compter de l'enregistrement"
+  # CORRIGEE le 2026-10-25 : etiquetee « absente_proche » a l'origine (« enregistrement
+  # des appels » : 0 occurrence). Le texte ecrit « Les enregistrements des appels », au
+  # pluriel, dans la section « Ecoute et enregistrement des conversation téléphoniques sur
+  # le lieu de travail » du referentiel RH p. 10 : la premiere version du systeme l'a
+  # trouvee.
 
 - id: Q40
   question: "Puis-je transférer des données vers un prestataire américain en m'appuyant sur le Data Privacy Framework ?"

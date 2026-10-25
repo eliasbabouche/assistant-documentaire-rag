@@ -20,10 +20,13 @@ QUESTIONS = yaml.safe_load(FICHIER.read_text(encoding="utf-8"))
 
 
 def test_composition_du_jeu():
-    # 30 a 50 questions, dont environ un tiers sans reponse dans le corpus.
+    # 30 a 50 questions, dont environ un tiers sans reponse dans le corpus. Le plancher est
+    # a 25 % depuis la correction du 2026-10-25 : Q37 et Q39, ecrites comme sans reponse,
+    # en avaient une (12 sur 44, 27 %). On n'ajoute pas de question apres coup pour
+    # remonter la part : elle aurait ete ecrite en connaissant le systeme.
     assert 30 <= len(QUESTIONS) <= 50
     part_sans_reponse = sum(q["type"] in TYPES_SANS_REPONSE for q in QUESTIONS) / len(QUESTIONS)
-    assert 0.30 <= part_sans_reponse <= 0.40
+    assert 0.25 <= part_sans_reponse <= 0.40
 
 
 def test_identifiants_uniques():

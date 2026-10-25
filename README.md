@@ -26,7 +26,7 @@ demander au modèle de répondre uniquement à partir d'eux, en les citant.
 | Étape | Statut | Ce qu'elle produit |
 |---|---|---|
 | 1. Corpus | ✅ | 23 PDF vérifiés par empreinte, convertis en Markdown page par page (texte, titres, tableaux) |
-| 2. Jeu d'évaluation | ✅ | 44 questions écrites **avant** le système, dont 14 sans réponse dans le corpus |
+| 2. Jeu d'évaluation | ✅ | 44 questions écrites **avant** le système, dont 12 sans réponse dans le corpus (14 à l'origine, deux corrigées le 2026-10-25) |
 | 3. Découpage, embeddings, index vectoriel | ✅ | 1 244 passages indexés dans ChromaDB, première mesure de la recherche |
 | 4. Génération | 🔄 en cours | réponses citées et refus avec Mistral en local ; puis l'API Claude |
 | 5. Évaluation | ⬜ | exactitude, fidélité aux sources, refus correct, latence, coût par requête |
@@ -147,8 +147,10 @@ correction du jeu sera datée et justifiée dans `evaluation/questions.yaml`.
 - Les réponses sont repérées par page, pas par passage : les passages changent avec la
   stratégie de découpage, les pages jamais. Le même jeu permet donc de comparer les
   stratégies entre elles.
-- Un tiers des questions (14 sur 44) n'a pas de réponse dans le corpus, dont 8 sur des
-  sujets que la CNIL traite ailleurs : c'est là qu'un système invente le plus volontiers.
+- 12 questions sur 44 (27 %) n'ont pas de réponse dans le corpus, dont 6 sur des sujets
+  que la CNIL traite ailleurs : c'est là qu'un système invente le plus volontiers. J'en
+  avais écrit 14 ; la première version du système en a trouvé la réponse pour deux, et je
+  les ai corrigées sans en ajouter d'autres après coup.
 
 **Les PDF sont convertis en Markdown, pas en texte brut.**
 
@@ -157,7 +159,7 @@ correction du jeu sera datée et justifiée dans `evaluation/questions.yaml`.
   se retrouve séparée de la ligne à laquelle elle se rapporte.
 - En Markdown, chaque ligne du tableau garde ses colonnes. Le retrait de la mise en forme
   inutile réduit de 35 % le nombre de tokens des pages de tableaux.
-- 6 questions du jeu d'évaluation ont leur réponse dans un tableau : l'effet de ce choix
+- 8 questions du jeu d'évaluation ont leur réponse dans un tableau : l'effet de ce choix
   sera mesuré, pas supposé.
 
 ## Limites connues
@@ -277,14 +279,20 @@ titre de partie.
 <summary><b>Comment le jeu d'évaluation a-t-il été construit, et comment savoir qu'il ne favorise pas le système ?</b></summary>
 
 Je l'ai écrit à partir des documents, avant d'écrire la moindre ligne de recherche ou de
-génération : l'historique git le montre. Il compte 44 questions. 30 ont une réponse, chacune
+génération : l'historique git le montre. Il compte 44 questions. 32 ont une réponse, chacune
 avec sa page et un extrait exact que les tests retrouvent mot pour mot dans le texte. Elles
-couvrent des cas variés : 6 réponses dans un tableau, 5 questions reformulées sans les mots
+couvrent des cas variés : 8 réponses dans un tableau, 5 questions reformulées sans les mots
 du document, 4 qui demandent deux documents, et 3 qui affirment une règle fausse que le
-système doit corriger. 14 questions (32 %) n'ont pas de réponse dans le corpus, dont 8 sur
-des sujets que la CNIL traite ailleurs, comme la vidéosurveillance au travail : ce sont les
-plus susceptibles de provoquer une réponse inventée. J'ai vérifié chaque absence par une
-recherche dans les 593 pages, et deux de mes idées de départ avaient en fait une réponse.
+système doit corriger. 12 questions (27 %) n'ont pas de réponse dans le corpus, dont 6 sur
+des sujets que la CNIL traite ailleurs, comme la géolocalisation permanente d'un véhicule de
+fonction : ce sont les plus susceptibles de provoquer une réponse inventée. J'ai vérifié
+chaque absence par une recherche dans les 593 pages, et deux de mes idées de départ avaient
+en fait une réponse. Ma vérification en a pourtant manqué deux autres, que la première
+version du système a trouvées : la durée de conservation des images de vidéosurveillance
+et l'enregistrement des appels, dans un tableau du référentiel RH (ma recherche portait sur
+« enregistrement des appels », le texte écrit « les enregistrements des appels »). Je les ai
+corrigées, datées dans le fichier, sans ajouter de question après coup : elle aurait été
+écrite en connaissant le système.
 Les réponses sont étiquetées par page et non par passage, pour que le même jeu serve à
 comparer plusieurs stratégies de découpage.
 
