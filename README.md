@@ -27,11 +27,12 @@ demander au modèle de répondre uniquement à partir d'eux, en les citant.
 |---|---|---|
 | 1. Corpus | ✅ | 23 PDF vérifiés par empreinte, convertis en Markdown page par page (texte, titres, tableaux) |
 | 2. Jeu d'évaluation | ✅ | 44 questions écrites **avant** le système, dont 14 sans réponse dans le corpus |
-| 3. Découpage, embeddings, index vectoriel | 🔄 en cours | passages indexés dans ChromaDB, première mesure de la recherche |
-| 4. Génération | ⬜ | réponses citées : Mistral en local, puis l'API Claude |
+| 3. Découpage, embeddings, index vectoriel | ✅ | 1 244 passages indexés dans ChromaDB, première mesure de la recherche |
+| 4. Génération | 🔄 en cours | réponses citées et refus avec Mistral en local ; puis l'API Claude |
 | 5. Évaluation | ⬜ | exactitude, fidélité aux sources, refus correct, latence, coût par requête |
-| 6. Variantes | ⬜ | deux stratégies de découpage, recherche hybride, reclassement (*reranking*) |
+| 6. Variantes | ⬜ | deux stratégies de découpage, recherche hybride, reclassement (*reranking*), extraction Docling |
 | 7. Démo | ⬜ | interface en ligne sur Hugging Face Spaces |
+| 8. Supervision et service | ⬜ | chaque question tracée avec Langfuse ; le RAG servi en API (FastAPI, Docker) |
 
 ## Ce qui sera mesuré
 
@@ -86,11 +87,55 @@ Le texte n'est pas réduit : seules la mise en forme et les répétitions dispar
    tableaux ligne par ligne ; retrait de la mise en forme et des en-têtes et pieds de page.
 2. **Jeu d'évaluation** : 44 questions rédigées à partir des documents, chacune avec ses
    pages sources et un extrait exact vérifié par les tests (`evaluation/questions.yaml`).
-3. **Indexation** : découpage en passages d'au plus 500 tokens, embeddings multilingues
-   `BAAI/bge-m3`, index vectoriel ChromaDB en similarité cosinus.
-4. **Génération** : les passages retrouvés sont transmis au modèle avec la consigne de
-   répondre uniquement à partir d'eux, de citer document et page, et de refuser sinon.
-   Même index et mêmes questions pour Mistral (local, via Ollama) et Claude (API).
+3. **Indexation** : découpage qui suit la structure du document (un titre ouvre un passage,
+   un tableau trop long est coupé entre deux lignes avec son en-tête répété), passages d'au
+   plus 500 tokens précédés du titre du document et de leur section ; embeddings
+   multilingues `BAAI/bge-m3` (1 024 dimensions), index vectoriel ChromaDB en similarité
+   cosinus.
+4. **Génération** : les 5 passages les plus proches sont transmis au modèle avec la consigne
+   de répondre uniquement à partir d'eux, de citer leur numéro et de refuser sinon, par une
+   phrase fixe. Un garde-fou demande d'abord au modèle, par OUI ou NON, si l'un des
+   passages contient l'information. Même index et mêmes questions pour Mistral (local, via
+   Ollama) et Claude (API).
+
+## Premiers résultats (2026-10-25)
+
+**Découpage** : 593 pages → 1 244 passages, taille médiane 335 tokens (`bge-m3`), maximum
+500 ; 136 passages contiennent un tableau, 326 sont à cheval sur deux pages ; 225 lignes de
+sommaire retirées (source : `donnees/agrege/decoupage_resume.csv`). Encodage des 1 244
+passages : 8,4 s sur une RTX 3080.
+
+**Recherche seule**, sur les 30 questions qui ont une réponse : la page qui contient la
+réponse est-elle parmi les k premiers passages retrouvés ?
+
+| k | 1 | 3 | 5 | 10 |
+|---|---:|---:|---:|---:|
+| *Hit rate@k* | 50 % | 63 % | 73 % | 87 % |
+
+MRR@10 : 0,60 (source : `donnees/agrege/recherche_resume.csv`). L'écart entre 5 et 10
+passages (73 % → 87 %) est l'argument du reclassement prévu en phase 6.
+
+**Refus**, premier essai avec Mistral 7B (local, température 0) : voir
+`donnees/agrege/refus_premier_essai.csv`, une ligne par question avec la réponse complète.
+
+| Configuration | Refus corrects (sur 12 sans réponse) | Refus à tort (sur 30) | Durée médiane |
+|---|---:|---:|---:|
+| Consignes seules | 10 | 8 | 3,6 s |
+| Consignes + garde-fou OUI / NON | 11 | 9 | 5,5 s |
+
+Le garde-fou bloque l'invention la plus grave observée (une durée de préavis tirée du Code
+du travail, absent du corpus, avec de fausses citations), au prix d'un refus à tort de plus
+et de 2 secondes. Le système sait donc refuser, mais il refuse trop : les questions
+reformulées sans les mots du document sont les plus touchées. L'exactitude des réponses
+n'est pas encore jugée : c'est l'objet de la phase 5.
+
+**Deux erreurs du jeu d'évaluation trouvées par le système.** Q37 (vidéosurveillance) et
+Q39 (enregistrement des appels) avaient été étiquetées « sans réponse », mais le système
+y a répondu juste, en citant le référentiel sur les durées de conservation en gestion des
+ressources humaines (p. 7 : un mois ; p. 10 : six mois). Ma vérification d'absence
+cherchait « enregistrement des appels », le document écrit « les enregistrements des
+appels ». Le tableau ci-dessus compte donc 12 questions sans réponse, et non 14 ; la
+correction du jeu sera datée et justifiée dans `evaluation/questions.yaml`.
 
 ## Deux choix de méthode qui changent le résultat
 
@@ -126,6 +171,11 @@ Le texte n'est pas réduit : seules la mise en forme et les répétitions dispar
 - **Éditions anciennes** : le guide du sous-traitant date de 2017, avant l'entrée en
   application du RGPD. Il reste le guide de référence de la CNIL, mais certains passages
   peuvent être datés.
+- **Lignes de tableau géantes** : une ligne de tableau qui dépasse à elle seule 500 tokens
+  (la grille de lecture du référentiel RH) est coupée au token près, sans respect des
+  phrases. Cas rare, visible en relisant les passages.
+- **Excès de prudence** : au premier essai, Mistral 7B refuse à tort près d'une question sur
+  trois qui a pourtant une réponse, souvent quand le bon passage est retrouvé.
 
 ## Ce qui a été difficile, et ce que j'en retiens
 
@@ -140,16 +190,32 @@ Le texte n'est pas réduit : seules la mise en forme et les répétitions dispar
 
 ## Exécution
 
-État actuel : constitution du corpus. L'interface de questions-réponses arrivera à
-l'étape 7.
+État actuel : questions-réponses en ligne de commande, avec un modèle local. L'interface
+arrivera à l'étape 7.
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
+pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements.txt
 python -m src.telechargement
 python -m src.extraction
+python -m src.decoupage
+python -m src.indexation
 ```
+
+La première indexation télécharge le modèle `bge-m3` (2,3 Go). Sans carte graphique
+NVIDIA, remplacer `cu124` par `cpu` : l'encodage est alors plus lent, le reste identique.
+
+Pour poser une question, avec [Ollama](https://ollama.com) installé et démarré :
+
+```bash
+ollama pull mistral
+python -m src.generation "Combien de temps garder les CV des candidats non retenus ?"
+```
+
+Mesures : `python -m src.evaluation_recherche` (recherche seule), puis
+`python -m src.evaluation_refus` (refus, 88 réponses, environ 8 minutes).
 
 ## Tests
 
@@ -166,9 +232,14 @@ s'exécutent après `python -m src.extraction`, et sont ignorés sinon (dans la 
 src/config.py           chemins, paramètres, liste figée des 23 documents
 src/telechargement.py   téléchargement vérifié par empreinte SHA-256
 src/extraction.py       PDF vers Markdown page par page, entonnoir du nettoyage
+src/decoupage.py        pages vers passages (structure, tableaux, contexte)
+src/indexation.py       embeddings bge-m3 et index ChromaDB
+src/recherche.py        passages les plus proches d'une question
+src/generation.py       réponse citée ou refus, avec Mistral via Ollama
+src/evaluation_*.py     mesures de la recherche et des refus
 evaluation/             jeu d'évaluation (44 questions)
-tests/                  tests unitaires, sans réseau
-donnees/                brut/ et traite/ non versionnés ; agrege/ versionné (petits tableaux)
+tests/                  tests unitaires, sans réseau ni modèle
+donnees/                brut/, traite/ et index/ non versionnés ; agrege/ versionné (petits tableaux)
 ```
 
 ## Questions fréquentes
@@ -216,6 +287,39 @@ plus susceptibles de provoquer une réponse inventée. J'ai vérifié chaque abs
 recherche dans les 593 pages, et deux de mes idées de départ avaient en fait une réponse.
 Les réponses sont étiquetées par page et non par passage, pour que le même jeu serve à
 comparer plusieurs stratégies de découpage.
+
+</details>
+
+<details>
+<summary><b>Pourquoi des passages de 500 tokens, ce chevauchement et ces métadonnées ?</b></summary>
+
+Un passage est résumé par un seul vecteur : trop long, il mélange plusieurs idées et
+ressemble à tout ; trop court, il perd le contexte qui le rend compréhensible. 500 tokens
+`bge-m3`, soit 250 à 320 mots, portent une règle et sa justification, et 5 passages tiennent
+dans le contexte de Mistral avec les consignes (environ 2 700 tokens mesurés par Ollama). Je
+ne coupe pas tous les 500 tokens à l'aveugle : un titre ouvre un nouveau passage, et un
+tableau trop long est coupé entre deux lignes, avec son en-tête répété dans chaque morceau,
+sinon une durée « 5 ans » n'a plus de colonne. Le chevauchement est ciblé : quand un
+passage est coupé parce qu'il est plein, son dernier paragraphe, s'il fait au plus 100
+tokens, est repris en tête du suivant. Résultat : 1 244 passages, taille médiane 335.
+Chaque passage est précédé du titre du document et de sa section avant d'être encodé, et
+garde en métadonnées son document et ses pages de début et de fin : c'est ce qui permet de
+citer la source, et de mesurer la recherche page par page.
+
+</details>
+
+<details>
+<summary><b>Pourquoi ne pas refuser simplement quand les passages retrouvés sont trop éloignés ?</b></summary>
+
+C'était l'idée la plus simple, et je l'ai mesurée avant de l'écarter. Le score de
+similarité du meilleur passage vaut 0,66 en médiane pour les questions qui ont une réponse,
+et 0,56 pour celles qui n'en ont pas, mais les deux distributions se recouvrent : la
+question sur la géolocalisation permanente d'une voiture de fonction, sans réponse dans le
+corpus, obtient 0,66, plus que la moitié des questions qui ont une réponse. Un seuil
+refuserait donc de bonnes questions, ou laisserait passer des questions sans réponse. Le
+refus est donc décidé par le modèle, qui lit les passages, avec une phrase fixe facile à
+détecter et un garde-fou : une question fermée (« l'un des passages contient-il
+l'information ? ») posée avant la réponse.
 
 </details>
 

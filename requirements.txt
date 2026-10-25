@@ -14,6 +14,15 @@ tokenizers>=0.20
 # Lecture du jeu d'evaluation (evaluation/questions.yaml)
 pyyaml>=6.0
 
+# Embeddings (bge-m3) et index vectoriel. Versions figees : un changement de version peut
+# changer les vecteurs, donc les resultats de la recherche.
+# PyTorch avec GPU NVIDIA : l'installer AVANT ce fichier, depuis l'index de PyTorch :
+#   pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+# (sans GPU, ou dans la CI : --index-url https://download.pytorch.org/whl/cpu)
+torch==2.6.0
+sentence-transformers==6.2.0
+chromadb==1.5.9
+
 # Restitution (si le projet a une interface)
 # streamlit>=1.30
 # plotly>=5.18

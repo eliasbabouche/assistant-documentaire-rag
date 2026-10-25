@@ -17,10 +17,26 @@ DONNEES_TRAITE = DOSSIER_DONNEES / "traite"
 # Petits tableaux de synthese (entonnoirs, resultats) : versionnes, lus par le README
 # et l'application.
 DONNEES_AGREGE = DOSSIER_DONNEES / "agrege"
+# Base vectorielle ChromaDB (fichiers sur disque, reconstruits par src.indexation).
+DONNEES_INDEX = DOSSIER_DONNEES / "index"
+DOSSIER_EVALUATION = RACINE / "evaluation"
 
 # Modele d'embedding. Son tokenizer sert aussi a compter les tokens partout dans
 # l'indexation (entonnoir, decoupage) : un seul etalon pour toute la partie « index ».
 MODELE_EMBEDDING = "BAAI/bge-m3"
+# Une collection par strategie de decoupage : la phase 6 en comparera plusieurs.
+COLLECTION = "cnil_structure_500"
+
+# --- Generation ---
+# Modele local servi par Ollama (`ollama pull mistral`), sur la machine : gratuit et prive.
+MODELE_GENERATION = "mistral"
+URL_OLLAMA = "http://localhost:11434"
+# Nombre de passages transmis au modele. 5 passages de 500 tokens bge-m3 font environ
+# 3 000 tokens Mistral (rapport mesure : 1,21) : d'ou un contexte de 8 192 et non 4 096.
+NB_PASSAGES = 5
+CONTEXTE_GENERATION = 8192
+# Phrase de refus imposee : une formule fixe se detecte sans ambiguite a l'evaluation.
+PHRASE_REFUS = "Je ne trouve pas cette information dans les documents."
 
 # --- Format des exports ---
 # Ces trois parametres sont la cause la plus frequente d'un import casse en aval.
