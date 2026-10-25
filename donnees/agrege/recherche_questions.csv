@@ -35,9 +35,9 @@ Q33;absente_hors_perimetre;False;;0.559;gestion_commerciale p. 5
 Q34;absente_hors_perimetre;False;;0.513;gestion_commerciale p. 11
 Q35;absente_hors_perimetre;False;;0.37;securite p. 13-14
 Q36;absente_hors_perimetre;False;;0.481;gestion_rh p. 7
-Q37;absente_proche;False;;0.642;durees_conservation_rh p. 7
+Q37;tableau;True;1.0;0.642;durees_conservation_rh p. 7
 Q38;absente_proche;False;;0.658;localisation p. 4-5
-Q39;absente_proche;False;;0.656;durees_conservation_rh p. 10-11
+Q39;tableau;True;1.0;0.656;durees_conservation_rh p. 10-11
 Q40;absente_proche;False;;0.596;transferts_aitd p. 18
 Q41;absente_proche;False;;0.556;gestion_rh p. 4-5
 Q42;absente_proche;False;;0.583;applications_mobiles p. 32

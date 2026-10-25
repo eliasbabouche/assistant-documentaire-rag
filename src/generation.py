@@ -32,9 +32,14 @@ Règles, à respecter strictement :
 
 # Les consignes sont rappelees APRES les passages : un modele de 7 milliards de parametres
 # suit mieux ce qu'il vient de lire que ce qu'il a lu 3 000 tokens plus tot.
+# La reponse partielle est autorisee : sans elle, le modele refusait des questions dont les
+# passages couvraient une partie (variante retenue parmi 5 essayees le 2026-10-25 :
+# 8 refus a tort sur 32 au lieu de 9, autant de bons refus).
 RAPPEL_REPONSE = (
     "Réponds à la question à partir de ces passages seulement, en citant leurs numéros. "
-    f"S'ils ne contiennent pas la réponse, écris seulement : {config.PHRASE_REFUS}"
+    "Si les passages ne répondent qu'à une partie de la question, réponds à cette partie "
+    "et dis ce qui manque. Si aucun passage ne traite du sujet de la question, écris "
+    f"seulement : {config.PHRASE_REFUS}"
 )
 # Garde-fou avant la reponse : une question fermee, a laquelle un petit modele repond
 # mieux qu'a une consigne de refus noyee dans une demande de reponse.
@@ -84,25 +89,28 @@ def extraire_citations(texte: str, nb_passages: int) -> list[int]:
 
 
 def appeler_ollama(prompt: str, nb_tokens_max: int = -1) -> dict:
-    reponse = requests.post(
-        f"{config.URL_OLLAMA}/api/chat",
-        json={
-            "model": config.MODELE_GENERATION,
-            "messages": [
-                {"role": "system", "content": CONSIGNES},
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-            # Temperature 0 : la meme question donne la meme reponse, condition pour
-            # evaluer. num_ctx fixe : par defaut, Ollama tronque le prompt sans prevenir.
-            "options": {
-                "temperature": 0,
-                "num_ctx": config.CONTEXTE_GENERATION,
-                "num_predict": nb_tokens_max,
-            },
+    requete = {
+        "model": config.MODELE_GENERATION,
+        "messages": [
+            {"role": "system", "content": CONSIGNES},
+            {"role": "user", "content": prompt},
+        ],
+        "stream": False,
+        # Temperature 0 : la meme question donne la meme reponse, condition pour evaluer.
+        # num_ctx fixe : par defaut, Ollama tronque le prompt sans prevenir.
+        "options": {
+            "temperature": 0,
+            "num_ctx": config.CONTEXTE_GENERATION,
+            "num_predict": nb_tokens_max,
         },
-        timeout=300,
-    )
+    }
+    for essai in range(2):
+        reponse = requests.post(f"{config.URL_OLLAMA}/api/chat", json=requete, timeout=300)
+        # Erreur 500 : le moteur d'Ollama s'est arrete (memoire GPU) et redemarre tout seul.
+        # Un seul nouvel essai : au-dela, c'est un vrai probleme, qu'on laisse remonter.
+        if reponse.status_code < 500 or essai == 1:
+            break
+        time.sleep(5)
     reponse.raise_for_status()
     return reponse.json()
 

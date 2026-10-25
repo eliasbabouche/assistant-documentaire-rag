@@ -25,3 +25,31 @@ def test_passage_couvrant_la_page_source():
     assert contient_la_reponse(passage, [{"document": "rh", "pages": [3]}])
     assert not contient_la_reponse(passage, [{"document": "rh", "pages": [4]}])
     assert not contient_la_reponse(passage, [{"document": "autre", "pages": [3]}])
+
+
+class FausseReponse:
+    def __init__(self, code: int):
+        self.status_code = code
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(self.status_code)
+
+    def json(self):
+        return {"message": {"content": "OUI"}}
+
+
+def test_ollama_reessaye_une_fois_apres_une_erreur_500(monkeypatch):
+    from src import generation
+
+    codes = iter([500, 200])
+    appels = []
+
+    def faux_post(*args, **kwargs):
+        appels.append(1)
+        return FausseReponse(next(codes))
+
+    monkeypatch.setattr(generation.requests, "post", faux_post)
+    monkeypatch.setattr(generation.time, "sleep", lambda s: None)
+    assert generation.appeler_ollama("prompt")["message"]["content"] == "OUI"
+    assert len(appels) == 2

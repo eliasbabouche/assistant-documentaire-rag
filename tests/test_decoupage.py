@@ -83,3 +83,16 @@ def test_chevauchement_du_dernier_paragraphe_court():
     assert len(passages) == 2
     assert "Phrase courte reprise." in passages[0].contenu
     assert passages[1].contenu.startswith("Phrase courte reprise.")
+
+
+def test_ligne_de_tableau_geante_coupee_entre_ses_phrases_en_tete_repete():
+    d = decoupeur()
+    phrases = " ".join(f"Phrase numero {i} de la cellule." for i in range(12))
+    tableau = f"|Finalité|Durée|\n|---|---|\n|{phrases}|5 ans|"
+    passages = d.decouper_document(DOCUMENT, [{"page": 2, "texte": tableau}])
+    assert len(passages) > 1
+    for passage in passages:
+        assert passage.contenu.startswith("|Finalité|Durée|\n|---|---|")
+    # Aucune phrase coupee en deux : chaque morceau finit sur une fin de phrase ou la ligne.
+    texte_total = " ".join(p.contenu for p in passages)
+    assert all(f"Phrase numero {i} de la cellule." in texte_total for i in range(12))

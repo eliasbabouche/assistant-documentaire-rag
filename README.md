@@ -103,39 +103,46 @@ Le texte n'est pas réduit : seules la mise en forme et les répétitions dispar
 **Découpage** : 593 pages → 1 244 passages, taille médiane 335 tokens (`bge-m3`), maximum
 500 ; 136 passages contiennent un tableau, 326 sont à cheval sur deux pages ; 225 lignes de
 sommaire retirées (source : `donnees/agrege/decoupage_resume.csv`). Encodage des 1 244
-passages : 8,4 s sur une RTX 3080.
+passages : 8,3 s sur une RTX 3080.
 
-**Recherche seule**, sur les 30 questions qui ont une réponse : la page qui contient la
+**Recherche seule**, sur les 32 questions qui ont une réponse : la page qui contient la
 réponse est-elle parmi les k premiers passages retrouvés ?
 
 | k | 1 | 3 | 5 | 10 |
 |---|---:|---:|---:|---:|
-| *Hit rate@k* | 50 % | 63 % | 73 % | 87 % |
+| *Hit rate@k* | 53 % | 66 % | 75 % | 88 % |
 
-MRR@10 : 0,60 (source : `donnees/agrege/recherche_resume.csv`). L'écart entre 5 et 10
-passages (73 % → 87 %) est l'argument du reclassement prévu en phase 6.
+MRR@10 : 0,63 (source : `donnees/agrege/recherche_resume.csv`). L'écart entre 5 et 10
+passages (75 % → 88 %) est l'argument du reclassement prévu en phase 6. Les 4 questions
+jamais retrouvées ont des causes différentes : vocabulaire du document différent de celui
+de la question (registre du sous-traitant), deux questions en une, et une date inscrite
+sur une couverture.
 
 **Refus**, premier essai avec Mistral 7B (local, température 0) : voir
 `donnees/agrege/refus_premier_essai.csv`, une ligne par question avec la réponse complète.
 
-| Configuration | Refus corrects (sur 12 sans réponse) | Refus à tort (sur 30) | Durée médiane |
+| Configuration | Refus corrects (sur 12 sans réponse) | Refus à tort (sur 32) | Durée médiane |
 |---|---:|---:|---:|
-| Consignes seules | 10 | 8 | 3,6 s |
-| Consignes + garde-fou OUI / NON | 11 | 9 | 5,5 s |
+| Consignes seules | 11 | 9 | 3,3 s |
+| Consignes + garde-fou OUI / NON | 11 | 8 | 5,5 s |
 
-Le garde-fou bloque l'invention la plus grave observée (une durée de préavis tirée du Code
-du travail, absent du corpus, avec de fausses citations), au prix d'un refus à tort de plus
-et de 2 secondes. Le système sait donc refuser, mais il refuse trop : les questions
-reformulées sans les mots du document sont les plus touchées. L'exactitude des réponses
-n'est pas encore jugée : c'est l'objet de la phase 5.
+Le système sait refuser : une seule question sans réponse reçoit une réponse, celle sur le
+*Data Privacy Framework*, où le modèle extrapole à partir d'un simple renvoi vers une page
+de la CNIL. Mais il refuse trop, surtout les questions reformulées sans les mots du
+document, et souvent alors que le bon passage est retrouvé : le maillon faible est ici la
+génération, pas la recherche. Cinq variantes de consignes ont été essayées ; aucune ne
+gagne plus d'une question, ce qui désigne le modèle lui-même (7 milliards de paramètres)
+plutôt que le prompt : la comparaison avec l'API Claude dira ce qu'apporte un modèle plus
+grand. L'exactitude des réponses n'est pas encore jugée : c'est l'objet de la phase 5.
 
 **Deux erreurs du jeu d'évaluation trouvées par le système.** Q37 (vidéosurveillance) et
-Q39 (enregistrement des appels) avaient été étiquetées « sans réponse », mais le système
-y a répondu juste, en citant le référentiel sur les durées de conservation en gestion des
-ressources humaines (p. 7 : un mois ; p. 10 : six mois). Ma vérification d'absence
-cherchait « enregistrement des appels », le document écrit « les enregistrements des
-appels ». Le tableau ci-dessus compte donc 12 questions sans réponse, et non 14 ; la
-correction du jeu sera datée et justifiée dans `evaluation/questions.yaml`.
+Q39 (enregistrement des appels) avaient été étiquetées « sans réponse », mais la première
+version du système y a répondu juste, en citant le référentiel sur les durées de
+conservation en gestion des ressources humaines (p. 7 : un mois ; p. 10 : six mois). Ma
+vérification d'absence cherchait « enregistrement des appels », le document écrit « les
+enregistrements des appels ». Les deux questions ont été corrigées le 2026-10-25, avec la
+raison dans `evaluation/questions.yaml` ; les chiffres ci-dessus portent sur le jeu
+corrigé.
 
 ## Deux choix de méthode qui changent le résultat
 
@@ -173,11 +180,8 @@ correction du jeu sera datée et justifiée dans `evaluation/questions.yaml`.
 - **Éditions anciennes** : le guide du sous-traitant date de 2017, avant l'entrée en
   application du RGPD. Il reste le guide de référence de la CNIL, mais certains passages
   peuvent être datés.
-- **Lignes de tableau géantes** : une ligne de tableau qui dépasse à elle seule 500 tokens
-  (la grille de lecture du référentiel RH) est coupée au token près, sans respect des
-  phrases. Cas rare, visible en relisant les passages.
-- **Excès de prudence** : au premier essai, Mistral 7B refuse à tort près d'une question sur
-  trois qui a pourtant une réponse, souvent quand le bon passage est retrouvé.
+- **Excès de prudence** : au premier essai, Mistral 7B refuse à tort 8 questions sur 32 qui
+  ont pourtant une réponse, souvent quand le bon passage est retrouvé.
 
 ## Ce qui a été difficile, et ce que j'en retiens
 
@@ -189,6 +193,15 @@ correction du jeu sera datée et justifiée dans `evaluation/questions.yaml`.
   diffèrent d'une page à l'autre que par un numéro. La règle tient maintenant compte de la
   position (haut ou bas de page). Les tests ont été vérifiés par contre-épreuve : en
   cassant volontairement la règle, ils passent au rouge.
+- **Prouver une absence.** Deux questions écrites comme « sans réponse » en avaient une,
+  dans un tableau. Le système les a trouvées avant moi. J'en retiens qu'une vérification
+  d'absence par mots-clés se fait au singulier et au pluriel, et qu'une réponse du système
+  jugée fausse mérite d'être relue avant d'être comptée comme une erreur.
+- **Deux modèles sur une carte graphique.** Le modèle d'embedding (PyTorch) et le modèle
+  de génération (Ollama) partagent les 10 Go de la carte. Après une centaine de questions
+  enchaînées, le moteur d'Ollama s'est arrêté faute de mémoire : PyTorch gardait en
+  réserve la mémoire de chaque encodage. Elle est maintenant rendue après chaque question,
+  et un appel qui échoue est relancé une fois.
 
 ## Exécution
 

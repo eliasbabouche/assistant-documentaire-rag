@@ -54,9 +54,16 @@ def charger_modele():
 def encoder(modele, textes: list[str]) -> list[list[float]]:
     # Vecteurs normalises (longueur 1) : la similarite cosinus devient un simple produit
     # scalaire, et les scores sont comparables d'une question a l'autre.
+    import torch
+
     vecteurs = modele.encode(
         textes, batch_size=TAILLE_LOT, normalize_embeddings=True, show_progress_bar=False
     )
+    # bge-m3 et le modele de generation (Ollama) partagent la carte graphique : on rend la
+    # memoire de travail de PyTorch apres chaque encodage, sinon elle grossit au fil des
+    # questions et Ollama finit par en manquer (erreur CUDA out of memory constatee).
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     return vecteurs.tolist()
 
 

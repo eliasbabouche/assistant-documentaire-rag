@@ -137,7 +137,8 @@ class Decoupeur:
         """Coupe un bloc qui ne tient pas seul dans un passage.
 
         Tableau : entre deux lignes, en repetant l'en-tete (ligne de titres + ligne de
-        tirets) en tete de chaque morceau, sinon « 5 ans » n'a plus de colonne.
+        tirets) en tete de chaque morceau, sinon « 5 ans » n'a plus de colonne. Une ligne
+        de tableau trop longue a elle seule est coupee entre deux phrases, en-tete repete.
         Texte : entre deux phrases.
         """
         if bloc.nature == "tableau":
@@ -145,35 +146,46 @@ class Decoupeur:
             a_un_entete = len(lignes) > 2 and set(lignes[1].replace("|", "").strip()) <= set(
                 "-: "
             )
-            entete = lignes[:2] if a_un_entete else []
+            entete = "\n".join(lignes[:2]) + "\n" if a_un_entete else ""
             unites = lignes[2:] if a_un_entete else lignes
-            separateur = "\n"
+            morceaux = self.regrouper(unites, "\n", entete, budget)
         else:
-            entete = []
-            unites = MOTIF_FIN_DE_PHRASE.split(bloc.texte)
-            separateur = " "
-
-        morceaux, courant = [], []
-        for unite in unites:
-            candidat = entete + courant + [unite] if entete else courant + [unite]
-            if courant and self.nb_tokens(separateur.join(candidat)) > budget:
-                morceaux.append(separateur.join(entete + courant if entete else courant))
-                courant = []
-            courant.append(unite)
-        if courant:
-            morceaux.append(separateur.join(entete + courant if entete else courant))
+            entete = ""
+            morceaux = self.regrouper(MOTIF_FIN_DE_PHRASE.split(bloc.texte), " ", "", budget)
 
         resultat = []
         for morceau in morceaux:
-            if self.nb_tokens(morceau) <= budget:
-                resultat.append(Bloc(morceau, bloc.page, bloc.nature))
+            if self.nb_tokens(morceau) > budget and bloc.nature == "tableau":
+                # Une seule ligne de tableau trop longue : coupee entre ses phrases.
+                phrases = MOTIF_FIN_DE_PHRASE.split(morceau[len(entete) :])
+                morceaux_ligne = self.regrouper(phrases, " ", entete, budget)
             else:
-                # Une seule ligne ou une seule phrase trop longue (rare) : coupe en tokens.
-                ids = self.tokenizer.encode(morceau, add_special_tokens=False).ids
-                for debut in range(0, len(ids), budget):
-                    texte = self.tokenizer.decode(ids[debut : debut + budget])
+                morceaux_ligne = [morceau]
+            for texte in morceaux_ligne:
+                if self.nb_tokens(texte) <= budget:
                     resultat.append(Bloc(texte, bloc.page, bloc.nature))
+                    continue
+                # Une seule phrase plus longue que le passage : coupe au token pres, en
+                # dernier recours.
+                ids = self.tokenizer.encode(texte, add_special_tokens=False).ids
+                for debut in range(0, len(ids), budget):
+                    texte_coupe = self.tokenizer.decode(ids[debut : debut + budget])
+                    resultat.append(Bloc(texte_coupe, bloc.page, bloc.nature))
         return resultat
+
+    def regrouper(self, unites: list[str], separateur: str, prefixe: str, budget: int) -> list[str]:
+        """Regroupe des unites (lignes, phrases) en morceaux d'au plus `budget` tokens,
+        chacun precede de `prefixe` (l'en-tete d'un tableau, ou rien)."""
+        morceaux, courant = [], []
+        for unite in unites:
+            candidat = prefixe + separateur.join(courant + [unite])
+            if courant and self.nb_tokens(candidat) > budget:
+                morceaux.append(prefixe + separateur.join(courant))
+                courant = []
+            courant.append(unite)
+        if courant:
+            morceaux.append(prefixe + separateur.join(courant))
+        return morceaux
 
     def decouper_document(self, document: config.Document, pages: list[dict]) -> list[Passage]:
         blocs = []
