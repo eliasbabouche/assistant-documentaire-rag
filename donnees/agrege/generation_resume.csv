@@ -1,0 +1,4 @@
+﻿configuration;modele;questions_sans_reponse;refus_corrects;questions_avec_reponse;refus_a_tort;reponses_correctes;reponses_partielles;reponses_incorrectes;exactitude;questions_bon_passage;correctes_bon_passage;duree_mediane_s;tokens_entree_moyens;tokens_sortie_moyens;cout_total_usd;cout_par_question_usd;cout_juge_usd
+mistral;mistral;12;11;32;9;10;8;5;0.312;24;10;3.69;2712;95;0.0;0.0;0.0791
+mistral_garde_fou;mistral;12;10;32;10;9;9;4;0.281;24;9;5.92;4629;93;0.0;0.0;0.0745
+claude;claude-opus-5-5;12;9;32;1;21;8;2;0.656;24;20;2.61;3428;234;0.8093;0.01839;0.109

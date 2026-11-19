@@ -1,11 +1,125 @@
-﻿# Assistant documentaire RAG sur les guides de la CNIL
+# Assistant documentaire RAG sur les guides de la CNIL
 
 [![Tests](https://github.com/eliasbabouche/assistant-documentaire-rag/actions/workflows/tests.yml/badge.svg)](https://github.com/eliasbabouche/assistant-documentaire-rag/actions/workflows/tests.yml)
-![Statut](https://img.shields.io/badge/statut-en%20cours-orange)
+![Statut](https://img.shields.io/badge/statut-termin%C3%A9%2C%20p%C3%A9rim%C3%A8tre%20r%C3%A9duit-blue)
 
 > Assistant de questions-réponses sur 23 guides de la CNIL (RGPD) : réponses sourcées, refus
-> quand l'information est absente, et évaluation chiffrée d'un modèle local (Mistral via
-> Ollama) face à l'API Claude.
+> quand l'information est absente, et comparaison chiffrée d'un modèle local (Mistral 7B via
+> Ollama) et de l'API Claude sur les mêmes 44 questions et les mêmes passages.
+
+## Résultat : Mistral local contre l'API Claude
+
+Mêmes 44 questions, écrites avant le système. Mêmes 5 passages retrouvés pour chaque
+question, mêmes consignes : seul le modèle qui rédige la réponse change. Mesure du
+2026-11-19, un seul lancement par configuration.
+
+| | Mistral 7B, local | Mistral 7B + garde-fou | Claude Opus 5.5, API |
+|---|---:|---:|---:|
+| **Questions sans réponse dans le corpus (12)** | | | |
+| Refus par la phrase attendue | 11 | 10 | 9 |
+| Réponse inventée (relecture à l'aveugle des autres) | 1 | 2 | 0 |
+| **Questions avec réponse (32)** | | | |
+| Refus à tort | 9 | 10 | 1 |
+| Réponses correctes | 10 (31 %) | 9 (28 %) | **21 (66 %)** |
+| Réponses correctes ou partielles | 18 | 18 | 29 |
+| Réponses incorrectes | 5 | 4 | 2 |
+| Correctes quand le bon passage est retrouvé (24 questions) | 10 | 9 | 20 |
+| **Latence et coût** | | | |
+| Durée médiane de la génération | 3,7 s | 5,9 s | 2,6 s |
+| Coût par question | 0 $ à l'appel | 0 $ à l'appel | 0,018 $ |
+
+Sources : `donnees/agrege/generation_resume.csv` (ce tableau),
+`generation_reponses.csv` (les 132 réponses complètes), `generation_jugements.csv` (les 76
+verdicts du juge et leur raison), `generation_lecture_sans_reponse.csv` (la relecture des 6
+réponses données à une question sans réponse).
+
+### Ce que ça montre
+
+- **Sur les mêmes passages, le modèle fait la différence.** Claude répond correctement à 21
+  questions sur 32, Mistral à 10. L'écart vient d'abord des refus à tort : Mistral refuse 9
+  questions dont la réponse existe, Claude 1. Il est le plus net sur les 8 questions dont
+  la réponse est dans un tableau : 7 correctes pour Claude, 2 pour Mistral.
+- **Avec Claude, le maillon faible redevient la recherche.** Quand le bon passage est parmi
+  les 5 retrouvés, Claude répond correctement 20 fois sur 24. Sur ses 11 réponses non
+  correctes, 7 concernent les 8 questions dont le bon passage n'a pas été retrouvé :
+  améliorer encore la génération rapporterait peu, améliorer la recherche davantage.
+- **Aucun des deux n'invente beaucoup, mais ils ne refusent pas de la même façon.** Mistral
+  refuse par la phrase fixe 11 fois sur 12 et invente une fois (le *Data Privacy
+  Framework*). Claude ne donne la phrase fixe que 9 fois : les 3 autres fois, il écrit que
+  les passages ne répondent pas à la question, puis cite ce qui s'en approche. À la
+  relecture, aucune de ces 3 réponses n'affirme ce que le corpus ne dit pas. Un refus
+  détecté par une phrase fixe sous-estime donc un modèle qui nuance.
+- **Le garde-fou OUI / NON n'apporte rien** : un bon refus de moins, un refus à tort de
+  plus, et 2,2 s de plus par question. Il n'est pas retenu.
+- **Le prix de l'écart** : 0,018 $ par question avec Claude (environ 3 400 tokens en
+  entrée, 230 en sortie), soit 18 $ pour 1 000 questions, contre un modèle local gratuit à
+  l'appel, qui garde les documents sur la machine. Claude est aussi plus rapide ici (2,6 s
+  contre 3,7 s), face à une RTX 3080.
+
+### Comment l'exactitude est jugée
+
+Chaque question a une réponse de référence, écrite à partir des documents avant le système
+(`evaluation/questions.yaml`). Un modèle juge (`claude-sonnet-5-5`, différent du modèle
+évalué) lit la question, la référence et la réponse à noter, puis rend l'un de trois
+verdicts selon une grille écrite dans `src/juge.py` :
+
+- **correcte** : tous les éléments essentiels de la référence, rien qui la contredise ;
+- **partielle** : une partie des éléments essentiels, rien qui la contredise ;
+- **incorrecte** : contredit la référence, n'en donne aucun élément, ou répond à côté.
+
+Le juge note à l'aveugle (il ne sait pas quel modèle a écrit la réponse) et ne voit pas
+les passages. Un refus ne passe pas devant le juge : il est compté à part. L'exactitude
+est le nombre de réponses correctes rapporté aux 32 questions, refus à tort compris.
+
+**Contrôle du juge.** 10 jugements tirés au sort (graine fixe : 4 « correcte »,
+3 « partielle », 3 « incorrecte ») ont été rejugés à l'aveugle, sans voir le verdict, puis
+comparés : 9 accords sur 10 (`donnees/agrege/generation_controle_juge.csv`). Le désaccord
+porte sur une réponse de Mistral (Q22) que le juge note « partielle » parce qu'il y manque
+un plafond secondaire de la référence. Aucune confusion entre « correcte » et « incorrecte ».
+
+### Limites de cette mesure
+
+- **Petit jeu, un seul lancement.** 32 questions avec réponse et 12 sans : un écart d'une
+  ou deux questions ne prouve rien. Preuve : Mistral avec garde-fou, mesuré le 2026-10-25
+  puis le 2026-11-19 sans changer le code ni la température (0), passe de 11 à 10 bons
+  refus et de 8 à 10 refus à tort. L'écart de 11 réponses
+  correctes entre Mistral et Claude est d'un autre ordre. L'API Claude n'accepte pas de
+  température fixe sur ce modèle : un second lancement peut déplacer quelques réponses.
+- **Le juge est un modèle, de la même famille que l'un des deux candidats.** Il note à
+  l'aveugle et le contrôle donne 9 accords sur 10, mais sur 10 jugements seulement.
+  Il est sévère sur les réponses courtes : un élément secondaire absent suffit à passer de
+  « correcte » à « partielle ». C'est pourquoi le tableau donne aussi « correctes ou
+  partielles ».
+- **La fidélité aux sources n'est pas mesurée.** Le juge compare à la référence, il ne
+  vérifie pas que chaque phrase est appuyée par le passage cité. Seules les 6 réponses
+  données à une question sans réponse ont été relues une par une.
+- **Coût et latence dépendent du contexte.** Le coût est calculé à partir des tokens
+  renvoyés par l'API et des tarifs publics relevés le 2026-11-03 (`src/config.py`), pas
+  d'une facture. Le coût du modèle local (carte graphique, électricité) n'est pas compté.
+  La latence ne couvre que la génération, pas la recherche, commune aux deux.
+- **Consigne des trois phrases** : elle est la même pour tous, mais Claude écrit des
+  réponses plus longues, ce qui aide à couvrir tous les éléments d'une référence.
+- **Index corrigé après la mesure.** Les réponses ont été produites avant la correction de
+  4 espaces absentes du PDF (« 1 moisà compter »). Refaite après, la recherche donne les
+  mêmes taux et le même rang du premier bon passage pour les 32 questions ; 5 questions
+  sur 44 reçoivent aujourd'hui un autre passage parmi les 5, en général le dernier.
+
+### Reproduire
+
+Avec l'index construit (voir [Exécution](#exécution)), Ollama démarré et une clé
+`ANTHROPIC_API_KEY` dans un fichier `.env` à la racine :
+
+```bash
+python -m src.evaluation_generation --estimer   # coût estimé, sans rien générer
+python -m src.evaluation_generation             # 132 réponses, environ 10 minutes
+python -m src.evaluation_exactitude             # 76 jugements, puis le tableau
+python -m src.evaluation_exactitude --resume    # recalcule le tableau seul, sans appel
+```
+
+Le lancement du 2026-11-19 a coûté 1,07 $ : 0,81 $ de génération et 0,26 $ de juge
+(colonnes `cout_usd` des fichiers de réponses et de jugements). La dernière commande
+redonne le tableau à l'identique à partir des fichiers versionnés ; les deux précédentes
+refont la mesure, et Claude peut alors formuler autrement.
 
 ## La question
 
@@ -21,20 +135,25 @@ renvoie une erreur 404, le document n'existe pas. Le RAG (*Retrieval-Augmented
 Generation*) consiste à retrouver d'abord les passages pertinents dans les documents, puis à
 demander au modèle de répondre uniquement à partir d'eux, en les citant.
 
-## Avancement
+## Périmètre : ce qui est fait, ce qui ne l'est pas
+
+Le projet est terminé en périmètre réduit le 2026-11-19 : il s'arrête à la comparaison
+chiffrée des deux modèles. Les étapes prévues au départ et non réalisées sont listées
+telles quelles.
 
 | Étape | Statut | Ce qu'elle produit |
 |---|---|---|
-| 1. Corpus | ✅ | 23 PDF vérifiés par empreinte, convertis en Markdown page par page (texte, titres, tableaux) |
-| 2. Jeu d'évaluation | ✅ | 44 questions écrites **avant** le système, dont 12 sans réponse dans le corpus (14 à l'origine, deux corrigées le 2026-10-25) |
-| 3. Découpage, embeddings, index vectoriel | ✅ | 1 244 passages indexés dans ChromaDB, première mesure de la recherche |
-| 4. Génération | 🔄 en cours | réponses citées et refus avec Mistral en local ; puis l'API Claude |
-| 5. Évaluation | ⬜ | exactitude, fidélité aux sources, refus correct, latence, coût par requête |
-| 6. Variantes | ⬜ | deux stratégies de découpage, recherche hybride, reclassement (*reranking*), extraction Docling |
-| 7. Démo | ⬜ | interface en ligne sur Hugging Face Spaces |
-| 8. Supervision et service | ⬜ | chaque question tracée avec Langfuse ; le RAG servi en API (FastAPI, Docker) |
+| 1. Corpus | ✅ fait | 23 PDF vérifiés par empreinte, convertis en Markdown page par page (texte, titres, tableaux) |
+| 2. Jeu d'évaluation | ✅ fait | 44 questions écrites **avant** le système, dont 12 sans réponse dans le corpus (14 à l'origine, deux corrigées le 2026-10-25) |
+| 3. Découpage, embeddings, index vectoriel | ✅ fait | 1 244 passages indexés dans ChromaDB, mesure de la recherche seule |
+| 4. Génération | ✅ fait | réponses citées et refus, avec Mistral en local et avec l'API Claude |
+| 5. Évaluation | ✅ fait, sauf la fidélité | refus, exactitude jugée contre les références, latence, coût par question |
+| 5 bis. Fidélité aux sources | ❌ non fait | vérifier que chaque affirmation est appuyée par le passage cité |
+| 6. Variantes | ❌ non fait | seconde stratégie de découpage, recherche hybride, reclassement (*reranking*), extraction Docling |
+| 7. Démo en ligne | ❌ non fait | pas d'interface : le système s'utilise en ligne de commande |
+| 8. Supervision et service | ❌ non fait | ni traçage Langfuse, ni API FastAPI, ni image Docker |
 
-## Ce qui sera mesuré
+## Ce qui est mesuré
 
 La recherche et la génération sont évaluées **séparément**. Quand une réponse est fausse, il
 faut savoir si le bon passage n'a pas été retrouvé (problème de recherche) ou s'il a été mal
@@ -42,12 +161,14 @@ exploité (problème de génération) : les deux ne se corrigent pas de la même
 
 | Maillon | Métrique | Ce qu'elle dit |
 |---|---|---|
-| Recherche (*retrieval*) | *Hit rate@k*, *recall@k* | la page qui contient la réponse est-elle parmi les k passages retrouvés ? |
+| Recherche (*retrieval*) | *Hit rate@k* | la page qui contient la réponse est-elle parmi les k passages retrouvés ? |
 | Recherche | MRR (*Mean Reciprocal Rank*) | à quel rang arrive le premier bon passage ? |
 | Génération | Exactitude (*answer correctness*) | la réponse dit-elle la même chose que la référence ? |
-| Génération | Fidélité (*faithfulness*) | chaque affirmation est-elle appuyée par les passages fournis ? |
 | Génération | Refus correct / refus à tort | dit-il « je ne sais pas » quand il le faut, et seulement dans ce cas ? |
-| Coût | Latence, coût par requête | le prix de la qualité, du modèle local à l'API |
+| Coût | Latence, coût par question | le prix de la qualité, du modèle local à l'API |
+
+Non mesurée : la fidélité (*faithfulness*), c'est-à-dire l'appui de chaque affirmation sur
+les passages fournis.
 
 ## Données
 
@@ -73,9 +194,9 @@ python -m src.extraction
 | Étape | Pages | Tokens (`bge-m3`) | % des tokens de départ |
 |---|---:|---:|---:|
 | Pages extraites en Markdown | 599 | 405 778 | 100 % |
-| Balisage retiré (gras, barré, sauts de ligne de cellule) | 599 | 376 243 | 92,7 % |
-| En-têtes et pieds de page retirés | 599 | 374 073 | 92,2 % |
-| **Pages vides écartées : corpus retenu** | **593** | **374 073** | **92,2 %** |
+| Balisage retiré (gras, barré, sauts de ligne de cellule) | 599 | 376 247 | 92,7 % |
+| En-têtes et pieds de page retirés | 599 | 374 077 | 92,2 % |
+| **Pages vides écartées : corpus retenu** | **593** | **374 077** | **92,2 %** |
 
 Le texte n'est pas réduit : seules la mise en forme et les répétitions disparaissent
 (source : `donnees/agrege/entonnoir_extraction.csv`).
@@ -94,11 +215,15 @@ Le texte n'est pas réduit : seules la mise en forme et les répétitions dispar
    cosinus.
 4. **Génération** : les 5 passages les plus proches sont transmis au modèle avec la consigne
    de répondre uniquement à partir d'eux, de citer leur numéro et de refuser sinon, par une
-   phrase fixe. Un garde-fou demande d'abord au modèle, par OUI ou NON, si l'un des
-   passages contient l'information. Même index et mêmes questions pour Mistral (local, via
-   Ollama) et Claude (API).
+   phrase fixe. Un garde-fou, essayé avec Mistral puis écarté, demande d'abord au modèle,
+   par OUI ou NON, si l'un des passages contient l'information. Même index, mêmes
+   questions, mêmes passages et mêmes consignes pour Mistral (local, via Ollama) et Claude
+   (API).
+5. **Évaluation** : refus détectés par la phrase fixe, exactitude jugée contre les
+   réponses de référence par un modèle juge avec une grille écrite, contrôlé à l'aveugle sur
+   un échantillon ; durée et tokens relevés à chaque appel.
 
-## Premiers résultats (2026-10-25)
+## Résultats intermédiaires : découpage, recherche, premiers refus (2026-10-25)
 
 **Découpage** : 593 pages → 1 244 passages, taille médiane 335 tokens (`bge-m3`), maximum
 500 ; 136 passages contiennent un tableau, 326 sont à cheval sur deux pages ; 225 lignes de
@@ -113,8 +238,8 @@ réponse est-elle parmi les k premiers passages retrouvés ?
 | *Hit rate@k* | 53 % | 66 % | 75 % | 88 % |
 
 MRR@10 : 0,63 (source : `donnees/agrege/recherche_resume.csv`). L'écart entre 5 et 10
-passages (75 % → 88 %) est l'argument du reclassement prévu en phase 6. Les 4 questions
-jamais retrouvées ont des causes différentes : vocabulaire du document différent de celui
+passages (75 % → 88 %) plaide pour un reclassement (*reranking*), qui n'a pas été
+réalisé. Les 4 questions jamais retrouvées ont des causes différentes : vocabulaire du document différent de celui
 de la question (registre du sous-traitant), deux questions en une, et une date inscrite
 sur une couverture.
 
@@ -132,8 +257,8 @@ de la CNIL. Mais il refuse trop, surtout les questions reformulées sans les mot
 document, et souvent alors que le bon passage est retrouvé : le maillon faible est ici la
 génération, pas la recherche. Cinq variantes de consignes ont été essayées ; aucune ne
 gagne plus d'une question, ce qui désigne le modèle lui-même (7 milliards de paramètres)
-plutôt que le prompt : la comparaison avec l'API Claude dira ce qu'apporte un modèle plus
-grand. L'exactitude des réponses n'est pas encore jugée : c'est l'objet de la phase 5.
+plutôt que le prompt. La comparaison avec l'API Claude, en tête de ce README, le confirme :
+sur les mêmes passages, Claude ne refuse à tort qu'une question.
 
 **Deux erreurs du jeu d'évaluation trouvées par le système.** Q37 (vidéosurveillance) et
 Q39 (enregistrement des appels) avaient été étiquetées « sans réponse », mais la première
@@ -166,8 +291,9 @@ corrigé.
   se retrouve séparée de la ligne à laquelle elle se rapporte.
 - En Markdown, chaque ligne du tableau garde ses colonnes. Le retrait de la mise en forme
   inutile réduit de 35 % le nombre de tokens des pages de tableaux.
-- 8 questions du jeu d'évaluation ont leur réponse dans un tableau : l'effet de ce choix
-  sera mesuré, pas supposé.
+- 8 questions du jeu d'évaluation ont leur réponse dans un tableau : Claude répond
+  correctement à 7 d'entre elles, Mistral à 2. L'extraction en texte brut n'a pas été
+  mesurée en comparaison.
 
 ## Limites connues
 
@@ -180,14 +306,24 @@ corrigé.
 - **Éditions anciennes** : le guide du sous-traitant date de 2017, avant l'entrée en
   application du RGPD. Il reste le guide de référence de la CNIL, mais certains passages
   peuvent être datés.
-- **Excès de prudence** : au premier essai, Mistral 7B refuse à tort 8 questions sur 32 qui
+- **Excès de prudence du modèle local** : Mistral 7B refuse à tort 9 questions sur 32 qui
   ont pourtant une réponse, souvent quand le bon passage est retrouvé.
+- **Recherche non améliorée** : le bon passage manque parmi les 5 retrouvés pour 8
+  questions sur 32, et c'est là que Claude perd l'essentiel de ses points. Ni recherche
+  hybride ni reclassement n'ont été essayés.
+- **Évaluation** : petit jeu, un seul lancement, juge automatique, fidélité aux sources
+  non mesurée (détail dans « Limites de cette mesure », en tête).
+- **Pas d'interface ni de supervision** : ligne de commande seulement.
 
 ## Ce qui a été difficile, et ce que j'en retiens
 
-- **Un nettoyage qui abîme le texte.** Retirer le gras collait des mots : `**5 ans**à compter`
-  devenait « 5 ansà compter », un mot qu'aucune recherche par mot-clé ne retrouve. Le gras est
-  désormais remplacé par une espace, et un test fige ce cas réel.
+- **Un test qui passait sans rien prouver.** Le texte extrait contenait « 5 ansà compter »,
+  un mot qu'aucune recherche par mot-clé ne retrouve. J'ai d'abord accusé le retrait du gras,
+  et écrit un test sur `**5 ans**à compter` : il passait, mais le défaut restait. Le Markdown
+  brut a montré la vraie cause : l'espace n'existe pas dans le PDF lui-même (« 1 moisà
+  compter », « visà-vis »). Une règle limitée aux durées et à ces deux mots la rétablit, et
+  le test part maintenant du texte réellement extrait. J'en retiens qu'un test se construit
+  à partir de la donnée réelle, pas de l'idée qu'on se fait de la cause.
 - **Un filtre trop zélé.** Ma première règle contre les pieds de page (« ligne présente sur la
   moitié des pages, chiffres ignorés ») supprimait aussi des lignes de contenu qui ne
   diffèrent d'une page à l'autre que par un numéro. La règle tient maintenant compte de la
@@ -205,8 +341,8 @@ corrigé.
 
 ## Exécution
 
-État actuel : questions-réponses en ligne de commande, avec un modèle local. L'interface
-arrivera à l'étape 7.
+Questions-réponses en ligne de commande, avec le modèle local ou avec l'API Claude. Python
+3.12.
 
 ```bash
 python -m venv .venv
@@ -229,8 +365,16 @@ ollama pull mistral
 python -m src.generation "Combien de temps garder les CV des candidats non retenus ?"
 ```
 
-Mesures : `python -m src.evaluation_recherche` (recherche seule), puis
-`python -m src.evaluation_refus` (refus, 88 réponses, environ 8 minutes).
+La même question à l'API Claude, avec une clé dans un fichier `.env` à la racine
+(`ANTHROPIC_API_KEY=...`, fichier jamais versionné) :
+
+```bash
+python -m src.generation --claude "Combien de temps garder les CV des candidats non retenus ?"
+```
+
+Mesures : `python -m src.evaluation_recherche` (recherche seule), `python -m
+src.evaluation_refus` (premier essai des refus avec Mistral, 88 réponses, environ 8
+minutes), puis la comparaison des deux modèles (voir [Reproduire](#reproduire)).
 
 ## Tests
 
@@ -238,8 +382,8 @@ Mesures : `python -m src.evaluation_recherche` (recherche seule), puis
 pytest
 ```
 
-Les tests tournent sans réseau. Ceux qui vérifient les citations du jeu d'évaluation
-s'exécutent après `python -m src.extraction`, et sont ignorés sinon (dans la CI notamment).
+Les tests tournent sans réseau : les appels à Ollama et à l'API Claude y sont simulés.
+Ceux qui vérifient les citations du jeu d'évaluation s'exécutent après `python -m src.extraction`, et sont ignorés sinon (dans la CI notamment).
 
 ## Structure
 
@@ -250,8 +394,13 @@ src/extraction.py       PDF vers Markdown page par page, entonnoir du nettoyage
 src/decoupage.py        pages vers passages (structure, tableaux, contexte)
 src/indexation.py       embeddings bge-m3 et index ChromaDB
 src/recherche.py        passages les plus proches d'une question
-src/generation.py       réponse citée ou refus, avec Mistral via Ollama
-src/evaluation_*.py     mesures de la recherche et des refus
+src/generation.py       réponse citée ou refus, avec Mistral via Ollama ou avec l'API Claude
+src/api_claude.py       appel à l'API Claude : texte, tokens, coût
+src/juge.py             grille et juge de l'exactitude
+src/evaluation_recherche.py    mesure de la recherche seule
+src/evaluation_refus.py        premier essai des refus (Mistral)
+src/evaluation_generation.py   les 44 questions, Mistral et Claude, mêmes passages
+src/evaluation_exactitude.py   jugements, tableau comparatif
 evaluation/             jeu d'évaluation (44 questions)
 tests/                  tests unitaires, sans réseau ni modèle
 donnees/                brut/, traite/ et index/ non versionnés ; agrege/ versionné (petits tableaux)
@@ -341,6 +490,37 @@ refuserait donc de bonnes questions, ou laisserait passer des questions sans ré
 refus est donc décidé par le modèle, qui lit les passages, avec une phrase fixe facile à
 détecter et un garde-fou : une question fermée (« l'un des passages contient-il
 l'information ? ») posée avant la réponse.
+
+</details>
+
+<details>
+<summary><b>Comment savoir si une réponse est juste, et peut-on faire confiance à un modèle qui en note un autre ?</b></summary>
+
+Chaque question a une réponse de référence, que j'ai écrite à partir des documents avant
+de construire le système. Un modèle juge compare la réponse du système à cette référence
+et rend un verdict parmi trois (correcte, partielle, incorrecte), selon une grille écrite
+dans le code. J'ai pris trois précautions. Le juge n'est pas le modèle évalué. Il note à
+l'aveugle, sans savoir si la réponse vient de Mistral ou de Claude. Et 10 jugements tirés
+au sort ont été rejugés à l'aveugle : 9 accords sur 10, le désaccord portant sur une réponse
+que le juge note « partielle » pour un détail manquant. J'en retiens que le juge est
+fiable pour séparer le juste du faux, moins pour la frontière entre « correcte » et
+« partielle » : je donne donc les deux chiffres. Ce que cette méthode ne mesure pas : la
+fidélité aux sources, c'est-à-dire si chaque phrase est bien appuyée par le passage cité.
+
+</details>
+
+<details>
+<summary><b>Modèle local ou API : que dit la comparaison ?</b></summary>
+
+Sur les mêmes 44 questions et les mêmes passages, Claude répond correctement à 21
+questions sur 32, Mistral 7B à 10, surtout parce que Mistral refuse 9 questions dont la
+réponse est sous ses yeux. Le prix de cet écart est de 0,018 $ par question, et les
+passages envoyés quittent la machine. Pour une documentation publique comme les guides
+de la CNIL, l'API l'emporte nettement. Pour une documentation interne sensible, le
+modèle local reste défendable : il invente peu (une réponse sur 12 questions sans
+réponse), mais il faut accepter qu'il réponde « je ne sais pas » trop souvent. La mesure
+dit aussi où travailler ensuite : avec Claude, 7 des 11 réponses non correctes viennent
+de questions dont le bon passage n'a pas été retrouvé, donc de la recherche.
 
 </details>
 

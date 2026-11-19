@@ -16,7 +16,7 @@ jobs:
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
           cache: pip
 
       - name: Installer les dependances
@@ -27,7 +27,7 @@ jobs:
           pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
           # Versions figees : un outil qui se met a jour tout seul peut casser la CI.
-          pip install pytest==9.1.1 ruff==0.16.8
+          pip install pytest==9.1.1 ruff==0.17.2
 
       - name: Verifier le style
         run: ruff check src tests

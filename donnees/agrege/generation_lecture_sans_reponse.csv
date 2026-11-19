@@ -1,0 +1,7 @@
+﻿configuration;id;lecture;commentaire
+mistral;Q40;invention;affirme qu'on peut s'appuyer sur le Data Privacy Framework à partir d'un simple renvoi vers une page de la CNIL, et cite un passage [18] qui n'existe pas
+mistral_garde_fou;Q38;invention;affirme que l'employeur ne peut pas géolocaliser en permanence, en le déduisant d'un tableau de durées de conservation
+mistral_garde_fou;Q40;invention;même réponse que sans garde-fou
+claude;Q38;manque_signale;écrit que les passages ne disent pas si c'est permis, puis cite les durées de conservation qu'ils contiennent
+claude;Q40;manque_signale;cite la décision d'adéquation mentionnée, puis écrit que les passages ne permettent pas de confirmer le transfert
+claude;Q41;manque_signale;écrit que les passages ne traitent pas de la photo sur le site, cite le cas voisin du clip promotionnel

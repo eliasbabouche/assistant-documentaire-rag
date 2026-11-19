@@ -1,0 +1,11 @@
+﻿configuration;id;verdict_juge;verdict_relecture;accord;commentaire
+claude;Q17;correcte;correcte;True;"même simplicité, même écran, deux boutons ; le retrait du consentement, absent, est secondaire"
+claude;Q30;correcte;correcte;True;prémisse corrigée, exemption et ses conditions données
+mistral;Q18;correcte;correcte;True;définition et 5 ans à compter du départ
+mistral_garde_fou;Q17;correcte;correcte;True;mêmes éléments, plus brièvement
+mistral_garde_fou;Q39;partielle;partielle;True;"finalités et 6 mois donnés, il manque le plafond d'1 an de l'archivage"
+mistral_garde_fou;Q09;partielle;partielle;True;1 an donné, les 3 ans des conventions de forfait manquent
+mistral;Q22;partielle;correcte;False;"la question porte sur le montant maximal : 20 M€ ou 4 % est donné ; le palier de 10 M€ est secondaire. Le juge est ici plus sévère que moi"
+mistral;Q15;incorrecte;incorrecte;True;même réponse que la configuration avec garde-fou
+mistral_garde_fou;Q19;incorrecte;incorrecte;True;affirme que la PME doit désigner un DPO, la référence dit seulement dans trois cas
+mistral_garde_fou;Q15;incorrecte;incorrecte;True;répond comme un sous-traitant (prévenir son client), sans la CNIL ni les 72 heures

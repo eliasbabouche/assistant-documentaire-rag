@@ -38,6 +38,27 @@ CONTEXTE_GENERATION = 8192
 # Phrase de refus imposee : une formule fixe se detecte sans ambiguite a l'evaluation.
 PHRASE_REFUS = "Je ne trouve pas cette information dans les documents."
 
+# --- API Claude ---
+# Second modele de generation, compare a Mistral sur les memes passages et les memes
+# consignes. La cle (ANTHROPIC_API_KEY) est lue dans le fichier .env, jamais versionne.
+MODELE_CLAUDE = "claude-opus-5-5"
+# Niveau d'effort (profondeur de reflexion) : « low » suffit pour une reponse courte
+# appuyee sur 5 passages, et limite la latence et le cout. Ce modele n'accepte pas de
+# temperature : deux lancements peuvent donner deux formulations differentes.
+EFFORT_CLAUDE = "low"
+# Plafond de la reponse, reflexion comprise (elle est comptee et facturee en sortie).
+TOKENS_MAX_CLAUDE = 16000
+# Juge de l'exactitude : un autre modele que celui qu'on evalue, pour qu'il ne note pas
+# ses propres reponses.
+MODELE_JUGE = "claude-sonnet-5-5"
+EFFORT_JUGE = "medium"
+# Tarifs publics en dollars par million de tokens (entree, sortie), releves le 2026-11-03.
+# A reverifier avant tout nouveau lancement : le cout affiche en depend.
+TARIFS_USD_PAR_MILLION = {
+    "claude-opus-5-5": (4.00, 20.00),
+    "claude-sonnet-5-5": (2.00, 10.00),
+}
+
 # --- Format des exports ---
 # Ces trois parametres sont la cause la plus frequente d'un import casse en aval.
 # Les fixer explicitement, ne jamais se reposer sur les valeurs par defaut de pandas.

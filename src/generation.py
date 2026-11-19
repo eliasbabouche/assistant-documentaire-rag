@@ -2,6 +2,8 @@
 
 Lancement depuis la racine du projet (Ollama demarre, index construit) :
     python -m src.generation "Combien de temps garder les CV des candidats non retenus ?"
+Meme question posee a l'API Claude (cle dans .env) :
+    python -m src.generation --claude "Combien de temps garder les CV ?"
 
 Le RAG en trois temps : 1. retrouver les passages proches de la question (src.recherche) ;
 2. les donner au modele avec la consigne de n'utiliser qu'eux ; 3. renvoyer la reponse avec
@@ -16,6 +18,7 @@ from dataclasses import dataclass
 import requests
 
 from src import config
+from src.api_claude import appeler_claude
 from src.recherche import PassageTrouve, rechercher
 
 CONSIGNES = f"""Tu réponds à des questions sur les guides et recommandations de la CNIL.
@@ -59,6 +62,8 @@ class Reponse:
     tokens_prompt: int
     tokens_reponse: int
     duree_s: float
+    modele: str = config.MODELE_GENERATION
+    cout_usd: float = 0.0  # modele local : aucun cout a l'appel
 
 
 def construire_prompt(question: str, passages: list[PassageTrouve], consigne: str) -> str:
@@ -115,9 +120,17 @@ def appeler_ollama(prompt: str, nb_tokens_max: int = -1) -> dict:
     return reponse.json()
 
 
-def repondre(question: str, k: int = config.NB_PASSAGES, verifier: bool = True) -> Reponse:
+def repondre(
+    question: str,
+    k: int = config.NB_PASSAGES,
+    verifier: bool = True,
+    passages: list[PassageTrouve] | None = None,
+) -> Reponse:
+    """Reponse de Mistral (Ollama). `passages` permet de fournir des passages deja
+    retrouves : l'evaluation donne ainsi les memes aux deux modeles."""
     debut = time.perf_counter()
-    passages = rechercher(question, k)
+    if passages is None:
+        passages = rechercher(question, k)
     tokens_prompt = tokens_reponse = 0
 
     if verifier:
@@ -150,6 +163,38 @@ def repondre(question: str, k: int = config.NB_PASSAGES, verifier: bool = True) 
     )
 
 
+def repondre_claude(
+    question: str, k: int = config.NB_PASSAGES, passages: list[PassageTrouve] | None = None
+) -> Reponse:
+    """Meme prompt que pour Mistral (consignes, passages, rappel), envoye a l'API Claude.
+
+    Pas de garde-fou OUI/NON ici : il a ete ajoute pour aider un petit modele, et il
+    doublerait le nombre d'appels factures.
+    """
+    debut = time.perf_counter()
+    if passages is None:
+        passages = rechercher(question, k)
+    appel = appeler_claude(
+        config.MODELE_CLAUDE,
+        CONSIGNES,
+        construire_prompt(question, passages, RAPPEL_REPONSE),
+        config.EFFORT_CLAUDE,
+    )
+    refus = est_un_refus(appel.texte)
+    return Reponse(
+        question=question,
+        texte=appel.texte,
+        refus=refus,
+        passages=passages,
+        cites=[] if refus else extraire_citations(appel.texte, len(passages)),
+        tokens_prompt=appel.tokens_entree,
+        tokens_reponse=appel.tokens_sortie,
+        duree_s=time.perf_counter() - debut,
+        modele=config.MODELE_CLAUDE,
+        cout_usd=appel.cout_usd,
+    )
+
+
 def afficher(reponse: Reponse) -> None:
     print(f"\nQuestion : {reponse.question}\n")
     print(reponse.texte)
@@ -161,12 +206,16 @@ def afficher(reponse: Reponse) -> None:
     for n, p in enumerate(reponse.passages, start=1):
         print(f"  [{n}] {p.document}, {p.pages}, {p.score:.2f} : {p.section[:60]}")
     print(
-        f"\n{reponse.tokens_prompt} tokens de prompt, {reponse.tokens_reponse} de réponse, "
-        f"{reponse.duree_s:.1f} s"
+        f"\n{reponse.modele} : {reponse.tokens_prompt} tokens de prompt, "
+        f"{reponse.tokens_reponse} de réponse, {reponse.duree_s:.1f} s, "
+        f"{reponse.cout_usd:.4f} $"
     )
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit('Usage : python -m src.generation "votre question"')
-    afficher(repondre(" ".join(sys.argv[1:])))
+    arguments = sys.argv[1:]
+    avec_claude = "--claude" in arguments
+    question = " ".join(a for a in arguments if a != "--claude")
+    if not question:
+        sys.exit('Usage : python -m src.generation [--claude] "votre question"')
+    afficher(repondre_claude(question) if avec_claude else repondre(question))

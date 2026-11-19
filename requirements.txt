@@ -1,7 +1,6 @@
-# Versions figees sur celles qui font passer les tests.
-# pandas 3 demande Python 3.11 ou plus : la CI, en Python 3.10, garde la derniere version 2.
-pandas==3.1.0 ; python_version >= "3.11"
-pandas==2.3.3 ; python_version < "3.11"
+# Versions figees sur celles qui font passer les tests, en Python 3.12 (la machine de
+# developpement et la CI).
+pandas==3.1.0
 requests==2.34.2
 
 # Extraction des PDF en Markdown (texte, titres, tableaux). Version figee : le rendu
@@ -20,6 +19,14 @@ pyyaml==6.0.3
 torch==2.6.0
 sentence-transformers==6.2.0
 chromadb==1.5.9
+# Telechargement du modele d'embedding (importe dans src/indexation.py). Deja installe
+# par sentence-transformers, declare ici parce que le code l'importe directement.
+huggingface_hub==2.3.0
+
+# API Claude : second modele de generation et juge de l'exactitude (SDK officiel).
+anthropic==2.10.0
+# Lecture de la cle d'API dans le fichier .env (jamais versionne).
+python-dotenv==1.2.4
 
 # Restitution (si le projet a une interface)
 # streamlit>=1.30
