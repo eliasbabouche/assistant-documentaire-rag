@@ -1,18 +1,16 @@
-# Socle commun. Retirer ce qui ne sert pas au projet : un requirements.txt
-# qui installe 40 paquets pour en utiliser 4 est un signal de negligence.
-pandas>=2.0
-numpy>=1.24
-requests>=2.31
-python-dotenv>=1.0
-matplotlib>=3.7
+# Versions figees sur celles qui font passer les tests.
+# pandas 3 demande Python 3.11 ou plus : la CI, en Python 3.10, garde la derniere version 2.
+pandas==3.1.0 ; python_version >= "3.11"
+pandas==2.3.3 ; python_version < "3.11"
+requests==2.34.2
 
 # Extraction des PDF en Markdown (texte, titres, tableaux). Version figee : le rendu
 # des tableaux change d'une version a l'autre, et donc les passages indexes.
 pymupdf4llm==1.28.2
 # Tokenizer de bge-m3 seul (leger) : compter les tokens sans charger le modele.
-tokenizers>=0.20
+tokenizers==0.23.3
 # Lecture du jeu d'evaluation (evaluation/questions.yaml)
-pyyaml>=6.0
+pyyaml==6.0.3
 
 # Embeddings (bge-m3) et index vectoriel. Versions figees : un changement de version peut
 # changer les vecteurs, donc les resultats de la recherche.
@@ -33,7 +31,3 @@ chromadb==1.5.9
 # Developpement (installes par la CI, pas necessaires a l'execution)
 # pytest>=8.0
 # ruff>=0.3
-
-# Notebook et restitution
-jupyter>=1.0
-notebook>=7.0
