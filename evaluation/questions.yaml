@@ -453,13 +453,14 @@
   sources:
     - document: durees_conservation_rh
       pages: [7]
-  citation: "1 moisà compter de la captation des images"
+  citation: "1 mois à compter de la captation des images"
   # question de depart du projet (hallucination de Mistral seul).
   # CORRIGEE le 2026-10-25 : etiquetee « absente_proche » a l'origine. La premiere version
   # du systeme y a repondu en citant le referentiel RH p. 7, ligne « Vidéosurveillance à
   # des fins de sécurisation des biens et des personnes ». La verification du 2026-10-09
-  # (« vidéosurveillance » : 0 occurrence) etait fausse : le mot figure dans ce tableau. Le PDF colle « moisà » (espace absente du
-  # fichier d'origine) : la citation reprend le texte tel quel.
+  # (« vidéosurveillance » : 0 occurrence) etait fausse : le mot figure dans ce tableau.
+  # Le PDF colle « moisà » (espace absente du fichier d'origine) : l'extraction remet
+  # l'espace depuis le 2026-11-19, la citation suit (seul l'extrait cite a change).
 
 - id: Q38
   question: "Mon employeur peut-il géolocaliser en permanence ma voiture de fonction ?"

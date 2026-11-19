@@ -9,6 +9,28 @@ def test_le_gras_retire_ne_colle_pas_les_mots():
     assert nettoyer_balisage("**5 ans**à compter du départ") == "5 ans à compter du départ"
 
 
+def test_espace_absente_du_pdf_remise_apres_une_duree():
+    # Cas reels du referentiel RH, tels que pymupdf4llm les sort : l'espace entre la duree
+    # et « à » n'existe pas dans la couche texte du PDF, le gras n'y est pour rien.
+    assert nettoyer_balisage("|**1 moisà compter de la captation") == (
+        "| 1 mois à compter de la captation"
+    )
+    assert nettoyer_balisage("**5**<br>**ansà compter de la date") == "5 ans à compter de la date"
+
+
+def test_mots_composes_recolles_par_le_pdf_retablis():
+    assert nettoyer_balisage("transparence visà-vis des personnes") == (
+        "transparence vis-à-vis des personnes"
+    )
+    assert nettoyer_balisage("c’està-dire des traitements") == "c’est-à-dire des traitements"
+
+
+def test_deja_et_au_dela_intacts():
+    assert nettoyer_balisage("déjà en place, au-delà de 5 ans") == (
+        "déjà en place, au-delà de 5 ans"
+    )
+
+
 def test_br_de_cellule_remplace_par_une_espace():
     resultat = nettoyer_balisage("|Registre unique du<br>personnel|")
     assert resultat == "|Registre unique du personnel|"

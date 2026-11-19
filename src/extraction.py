@@ -50,6 +50,11 @@ def nettoyer_balisage(texte: str) -> str:
         texte = texte.replace(balise, " ")
     # Balises HTML ajoutees par l'outil (souligne, exposant, surligne) : on garde le texte.
     texte = re.sub(r"</?(u|sup|mark)>", " ", texte)
+    # Espace absente de la couche texte du PDF (referentiel RH) : « 1 moisà compter ».
+    # Regle limitee aux durees, pour ne pas toucher « déjà » ni « au-delà ».
+    texte = re.sub(r"\b(ans?|mois|jours?|semaines?|heures?)à\b", r"\1 à", texte)
+    # Traits d'union perdus de la meme facon : « visà-vis », « c'està-dire ».
+    texte = texte.replace("visà-vis", "vis-à-vis").replace("està-dire", "est-à-dire")
     # Reperes autour du texte trouve dans les images : on garde le texte, pas les reperes.
     texte = re.sub(r"<!-- (Start|End) of picture text -->", "", texte)
     texte = re.sub(r"(?<=\S)[ \t]{2,}", " ", texte)  # espaces multiples (pas l'indentation)
